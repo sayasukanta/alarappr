@@ -236,7 +236,7 @@ export default function AdminDashboardPage() {
                     contentStyle={{ fontSize: 12, borderRadius: 8 }}
                   />
                   <Bar dataKey="quota" fill="#e2e8f0" name="quota" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="enrolled" fill="#2563eb" name="enrolled" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="enrolled" fill="#007AFF" name="enrolled" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (

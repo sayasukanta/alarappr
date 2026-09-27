@@ -287,7 +287,7 @@ export default function TryoutResultPage({
                   <Radar
                     name="Penguasaan Materi"
                     dataKey="score"
-                    stroke="#2563eb"
+                    stroke="#007AFF"
                     fill="#3b82f6"
                     fillOpacity={0.45}
                   />

@@ -72,7 +72,7 @@ export async function GET(req: Request) {
                 <p>Laporan Rekapitulasi Hasil Ujian BAPETEN dan Sertifikasi Peserta</p>
               </div>
             </div>
-            <button onclick="window.print()" style="padding: 8px 16px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">Cetak Dokumen</button>
+            <button onclick="window.print()" style="padding: 8px 16px; background: #007AFF; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">Cetak Dokumen</button>
           </div>
           <hr style="border: 0; border-top: 2px solid #0284c7; margin: 15px 0 25px 0;">
           <table>
