@@ -49,9 +49,23 @@ import { toast } from "sonner";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PROGRAMS = [
+export interface ProgramItem {
+  id: string;
+  category: string;
+  dbId?: number;
+  label: string;
+  title?: string;
+  price: number;
+  description: string;
+  duration: string;
+  durationDays?: number;
+  badge: string;
+}
+
+const DEFAULT_PROGRAMS: ProgramItem[] = [
   {
     id: "PPR_ANALISIS",
+    category: "PPR_ANALISIS",
     label: "PPR Analisis",
     price: 7000000,
     description: "Petugas Proteksi Radiasi Tingkat Analisis",
@@ -60,6 +74,7 @@ const PROGRAMS = [
   },
   {
     id: "PPR_BAGASI",
+    category: "PPR_BAGASI",
     label: "PPR Bagasi",
     price: 4000000,
     description: "Petugas Proteksi Radiasi Tingkat Bagasi/Industri",
@@ -68,13 +83,14 @@ const PROGRAMS = [
   },
   {
     id: "PKR",
+    category: "PKR_PEKERJA",
     label: "PKR Pekerja Radiasi",
-    price: 0,
+    price: 3500000,
     description: "Pelatihan Keselamatan Radiasi bagi Pekerja Radiasi",
     duration: "2 hari (16 JPL)",
     badge: "Internal",
   },
-] as const;
+];
 
 export interface BatchItem {
   id: number;
@@ -110,15 +126,12 @@ const DOC_TYPES = [
   { id: "NPWP", label: "NPWP", required: false, hint: "Opsional, bila memiliki NPWP" },
 ] as const;
 
-type ProgramId = (typeof PROGRAMS)[number]["id"];
 type DocTypeId = (typeof DOC_TYPES)[number]["id"];
 
 // ─── Zod Schemas per Step ─────────────────────────────────────────────────────
 
 const step1Schema = z.object({
-  programId: z.enum(["PPR_ANALISIS", "PPR_BAGASI", "PKR"], {
-    required_error: "Pilih program pelatihan",
-  }),
+  programId: z.string().min(1, "Pilih program pelatihan"),
   batchId: z.string().min(1, "Pilih jadwal batch yang tersedia"),
 });
 
@@ -192,12 +205,14 @@ function formatRupiah(amount: number) {
 function Step1Program({
   form,
   batches,
+  programs,
   loadingBatches,
   programBadges,
   onNext,
 }: {
   form: ReturnType<typeof useForm<z.infer<typeof step1Schema>>>;
   batches: BatchItem[];
+  programs: ProgramItem[];
   loadingBatches: boolean;
   programBadges: Record<string, string>;
   onNext: () => void;
@@ -219,8 +234,8 @@ function Step1Program({
 
       {/* Program Cards */}
       <div className="grid gap-3">
-        {PROGRAMS.map((prog) => {
-          const currentBadge = programBadges[prog.id] || prog.badge;
+        {programs.map((prog) => {
+          const currentBadge = programBadges[prog.id] || programBadges[prog.category] || prog.badge;
           return (
             <button
               key={prog.id}
@@ -872,6 +887,7 @@ function DocUploadRow({
 function Step5Review({
   formData,
   batches,
+  programs,
   userProfile,
   docs,
   onBack,
@@ -884,13 +900,16 @@ function Step5Review({
     step3: z.infer<typeof step3Schema>;
   };
   batches: BatchItem[];
+  programs: ProgramItem[];
   userProfile: UserProfileData | null;
   docs: Partial<Record<DocTypeId, File | null>>;
   onBack: () => void;
   onSubmit: () => void;
   isSubmitting: boolean;
 }) {
-  const selectedProgram = PROGRAMS.find((p) => p.id === formData.step1.programId);
+  const selectedProgram = programs.find(
+    (p) => p.id === formData.step1.programId || p.category === formData.step1.programId
+  );
   const selectedBatch = batches.find((b) => String(b.id) === String(formData.step1.batchId));
   const invoiceNo = `INV-${Date.now().toString().slice(-8)}`;
   const today = format(new Date(), "d MMMM yyyy", { locale: localeId });
@@ -1063,7 +1082,8 @@ export default function PendaftaranPage() {
   const [userProfile, setUserProfile] = useState<UserProfileData | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
-  // Dynamic Batches & Program Badges state
+  // Dynamic Programs, Batches & Program Badges state
+  const [programs, setPrograms] = useState<ProgramItem[]>(DEFAULT_PROGRAMS);
   const [batches, setBatches] = useState<BatchItem[]>([]);
   const [loadingBatches, setLoadingBatches] = useState<boolean>(false);
   const [programBadges, setProgramBadges] = useState<Record<string, string>>({
@@ -1078,6 +1098,30 @@ export default function PendaftaranPage() {
   });
 
   const selectedProgramId = form1.watch("programId");
+
+  // Load dynamic programs from database on mount
+  useEffect(() => {
+    fetch("/api/trainings")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setPrograms(data);
+          const newBadges: Record<string, string> = {};
+          data.forEach((p: ProgramItem) => {
+            if (p.badge) {
+              newBadges[p.id] = p.badge;
+              newBadges[p.category] = p.badge;
+            }
+          });
+          if (Object.keys(newBadges).length > 0) {
+            setProgramBadges((prev) => ({ ...prev, ...newBadges }));
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Gagal memuat program pelatihan:", err);
+      });
+  }, []);
 
   // Load all program badges on mount
   useEffect(() => {
@@ -1106,10 +1150,13 @@ export default function PendaftaranPage() {
       return;
     }
 
-    let category = "PPR_ANALISIS";
+    const matchedProg = programs.find(
+      (p) => p.id === selectedProgramId || p.category === selectedProgramId
+    );
+    let category = matchedProg?.category || "PPR_ANALISIS";
     if (selectedProgramId === "PPR_BAGASI") {
       category = "PPR_BAGASI";
-    } else if (selectedProgramId === "PKR") {
+    } else if (selectedProgramId === "PKR" || selectedProgramId === "PKR_PEKERJA") {
       category = "PKR_PEKERJA";
     }
 
@@ -1326,6 +1373,7 @@ export default function PendaftaranPage() {
             <Step1Program
               form={form1}
               batches={batches}
+              programs={programs}
               loadingBatches={loadingBatches}
               programBadges={programBadges}
               onNext={goNext}
@@ -1358,6 +1406,7 @@ export default function PendaftaranPage() {
                 step3: form3.getValues(),
               }}
               batches={batches}
+              programs={programs}
               userProfile={userProfile}
               docs={docs}
               onBack={goBack}
