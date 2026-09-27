@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export const DEFAULT_USER_MENUS = [
+const DEFAULT_USER_MENUS = [
   {
     menuKey: "dashboard",
     label: "Dashboard",
