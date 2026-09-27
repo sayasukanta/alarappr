@@ -173,7 +173,7 @@ export async function GET(
               font-family: system-ui, sans-serif;
             }
             .no-print-bar button {
-              background: #007AFF;
+              background: #202A5C;
               color: white;
               border: none;
               padding: 8px 18px;
@@ -289,7 +289,7 @@ export async function GET(
 
             /* Petunjuk Ujian */
             .instructions {
-              border-left: 3px solid #007AFF;
+              border-left: 3px solid #202A5C;
               background: #f8fafc;
               padding: 8px 12px;
               margin-bottom: 20px;

@@ -47,8 +47,8 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
-  --color-blue-600: #007AFF;
-  --color-blue-700: #0062cc;
+  --color-blue-600: #202A5C;
+  --color-blue-700: #171f45;
 }
 
 :root {
@@ -190,51 +190,51 @@
    ALARA Application Themes
    ========================================================================== */
 
-/* 0. ALARA Ocean Blue (Default BAPETEN - #007AFF) */
+/* 0. ALARA Ocean Blue (Default BAPETEN - #202A5C) */
 [data-theme="blue"] {
-  --primary: #007AFF;
-  --ring: #007AFF;
-  --sidebar-primary: #007AFF;
+  --primary: #202A5C;
+  --ring: #202A5C;
+  --sidebar-primary: #202A5C;
 }
 [data-theme="blue"] .bg-blue-600 {
-  background-color: #007AFF !important;
+  background-color: #202A5C !important;
 }
 [data-theme="blue"] .hover\:bg-blue-700:hover {
-  background-color: #0062cc !important;
+  background-color: #171f45 !important;
 }
 [data-theme="blue"] .text-blue-600 {
-  color: #007AFF !important;
+  color: #202A5C !important;
 }
 [data-theme="blue"] .text-blue-700 {
-  color: #0062cc !important;
+  color: #171f45 !important;
 }
 [data-theme="blue"] .text-blue-800 {
-  color: #004fb3 !important;
+  color: #101533 !important;
 }
 [data-theme="blue"] .bg-blue-50 {
-  background-color: #eff6ff !important;
+  background-color: #f0f2f8 !important;
 }
 [data-theme="blue"] .bg-blue-100 {
-  background-color: #dbeafe !important;
+  background-color: #e1e4f0 !important;
 }
 [data-theme="blue"] .border-blue-600 {
-  border-color: #007AFF !important;
+  border-color: #202A5C !important;
 }
 [data-theme="blue"] .border-blue-200 {
-  border-color: #bfdbfe !important;
+  border-color: #c5cbe0 !important;
 }
 [data-theme="blue"] .border-blue-300 {
-  border-color: #93c5fd !important;
+  border-color: #9da8cc !important;
 }
 [data-theme="blue"] .ring-blue-600 {
-  --tw-ring-color: #007AFF !important;
+  --tw-ring-color: #202A5C !important;
 }
 [data-theme="blue"] .ring-blue-500 {
-  --tw-ring-color: #007AFF !important;
+  --tw-ring-color: #2b397d !important;
 }
 [data-theme="blue"] .shadow-blue-100,
 [data-theme="blue"] .shadow-blue-200 {
-  --tw-shadow-color: #bfdbfe !important;
+  --tw-shadow-color: #c5cbe0 !important;
 }
 
 /* 1. Emerald Proteksi */
