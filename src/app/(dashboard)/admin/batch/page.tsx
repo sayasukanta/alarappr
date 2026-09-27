@@ -112,6 +112,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   PPR_BAGASI: 'PPR Bagasi',
   PPR_ANALISIS: 'PPR Analisis',
   PKR_PEKERJA: 'PKR Pekerja Radiasi',
+  PPR_PENYEGARAN: 'PPR Penyegaran',
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────

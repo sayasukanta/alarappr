@@ -21,6 +21,7 @@ enum TrainingCategory {
   PPR_ANALISIS
   PPR_BAGASI
   PKR_PEKERJA
+  PPR_PENYEGARAN
 }
 
 enum RegistrationStatus {

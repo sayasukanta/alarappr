@@ -57,6 +57,8 @@ export function generateCertNumber(
       ? "PPR-ANALISIS"
       : program === "PPR_BAGASI"
       ? "PPR-BAGASI"
+      : program === "PPR_PENYEGARAN"
+      ? "PPR-PENYEGARAN"
       : "PKR";
   return `CERT/ALARA/${programCode}/${year}/B${batch}/${String(seq).padStart(3, "0")}`;
 }
@@ -69,6 +71,8 @@ export function getTrainingLabel(category: string): string {
       return "PPR Pemindai Bagasi";
     case "PKR_PEKERJA":
       return "PKR Pekerja Radiasi";
+    case "PPR_PENYEGARAN":
+      return "PPR Penyegaran";
     default:
       return category;
   }

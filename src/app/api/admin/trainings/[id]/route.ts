@@ -33,7 +33,7 @@ export async function PUT(
       return NextResponse.json({ error: "Judul/Nama program pelatihan wajib diisi" }, { status: 400 });
     }
 
-    if (!category || !["PPR_ANALISIS", "PPR_BAGASI", "PKR_PEKERJA"].includes(category)) {
+    if (!category || !["PPR_ANALISIS", "PPR_BAGASI", "PKR_PEKERJA", "PPR_PENYEGARAN"].includes(category)) {
       return NextResponse.json({ error: "Kategori pelatihan tidak valid" }, { status: 400 });
     }
 

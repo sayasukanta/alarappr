@@ -46,7 +46,7 @@ import { toast } from 'sonner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type TrainingCategory = 'PPR_ANALISIS' | 'PPR_BAGASI' | 'PKR_PEKERJA';
+type TrainingCategory = 'PPR_ANALISIS' | 'PPR_BAGASI' | 'PKR_PEKERJA' | 'PPR_PENYEGARAN';
 type InstructorStatus = 'ACTIVE' | 'INACTIVE';
 
 interface InstructorRecord {
@@ -78,6 +78,10 @@ const CATEGORY_MAP: Record<TrainingCategory, { label: string; badgeCls: string }
   PKR_PEKERJA: {
     label: 'PKR Pekerja',
     badgeCls: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+  },
+  PPR_PENYEGARAN: {
+    label: 'PPR Penyegaran',
+    badgeCls: 'bg-teal-100 text-teal-800 border-teal-200',
   },
 };
 
@@ -332,6 +336,7 @@ export default function InstrukturPage() {
             { id: 'PPR_ANALISIS', label: 'PPR Analisis' },
             { id: 'PPR_BAGASI', label: 'PPR Bagasi' },
             { id: 'PKR_PEKERJA', label: 'PKR Pekerja' },
+            { id: 'PPR_PENYEGARAN', label: 'PPR Penyegaran' },
           ].map((cat) => (
             <button
               key={cat.id}
@@ -662,6 +667,7 @@ export default function InstrukturPage() {
                     <SelectItem value="PPR_ANALISIS">PPR Analisis</SelectItem>
                     <SelectItem value="PPR_BAGASI">PPR X-Ray Bagasi</SelectItem>
                     <SelectItem value="PKR_PEKERJA">PKR Pekerja</SelectItem>
+                    <SelectItem value="PPR_PENYEGARAN">PPR Penyegaran</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

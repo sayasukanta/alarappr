@@ -71,6 +71,13 @@ function getProgramFeatures(category?: string | null) {
         'Modul digital & studi kasus',
         'Sertifikat resmi kompetensi',
       ];
+    case 'PPR_PENYEGARAN':
+      return [
+        'Penyegaran lisensi SIB BAPETEN',
+        'Update regulasi & standar terbaru',
+        'Evaluasi & studi kasus proteksi radiasi',
+        'Sertifikat penyegaran resmi',
+      ];
     default:
       return [
         'Materi standar kompetensi',

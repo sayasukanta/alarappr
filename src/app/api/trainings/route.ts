@@ -28,6 +28,9 @@ export async function GET() {
       } else if (t.category === "PKR_PEKERJA") {
         label = "PKR Pekerja Radiasi";
         shortId = "PKR";
+      } else if (t.category === "PPR_PENYEGARAN") {
+        label = "PPR Penyegaran";
+        shortId = "PPR_PENYEGARAN";
       }
 
       return {
