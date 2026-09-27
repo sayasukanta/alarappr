@@ -187,6 +187,118 @@
     page-break-after: auto !important;
     break-after: auto !important;
   }
+
+  /* ─── Certificate font fixes: lock to lg-breakpoint equivalents ─── */
+  /* Title: "SERTIFIKAT PELATIHAN" */
+  .cert-page h1.font-certificate-title {
+    font-size: 16.5pt !important;
+    letter-spacing: 0.25em !important;
+    font-weight: 700 !important;
+  }
+  /* Subtitle: "TRAINING CERTIFICATE" */
+  .cert-page p.font-certificate-title {
+    font-size: 12pt !important;
+    letter-spacing: 0.22em !important;
+  }
+  /* Certificate number */
+  .cert-page .cert-number {
+    font-size: 9.75pt !important;
+    letter-spacing: 0.18em !important;
+    font-weight: 600 !important;
+  }
+  /* "Dengan ini menyatakan bahwa" */
+  .cert-page .cert-statement-id {
+    font-size: 10.9pt !important;
+    font-weight: 700 !important;
+  }
+  /* "This is to certify that" */
+  .cert-page .cert-statement-en {
+    font-size: 9pt !important;
+  }
+  /* Participant name (Great Vibes cursive) */
+  .cert-page .font-certificate-name {
+    font-size: 40.5pt !important;
+    line-height: 1.15 !important;
+  }
+  /* "Telah mengikuti Pelatihan Calon PPR" */
+  .cert-page .cert-program-label {
+    font-size: 10.5pt !important;
+    font-weight: 600 !important;
+  }
+  /* Training title (ID) */
+  .cert-page .cert-training-title-id {
+    font-size: 11.25pt !important;
+    font-weight: 800 !important;
+  }
+  /* "Has participated in the training of" */
+  .cert-page .cert-program-label-en {
+    font-size: 9pt !important;
+  }
+  /* Training title (EN) */
+  .cert-page .cert-training-title-en {
+    font-size: 9.375pt !important;
+    font-weight: 600 !important;
+  }
+  /* "Yang diselenggarakan pada tanggal" */
+  .cert-page .cert-date-id {
+    font-size: 9.75pt !important;
+    font-weight: 600 !important;
+  }
+  /* "Which was held on" */
+  .cert-page .cert-date-en {
+    font-size: 8.25pt !important;
+  }
+  /* Signatory: city + date */
+  .cert-page .cert-city-date {
+    font-size: 9pt !important;
+    font-weight: 500 !important;
+  }
+  /* "Atas nama ..." */
+  .cert-page .cert-behalf {
+    font-size: 8.25pt !important;
+    font-weight: 500 !important;
+  }
+  /* Signatory name (bold) */
+  .cert-page .cert-signatory-name {
+    font-size: 9.75pt !important;
+    font-weight: 700 !important;
+  }
+  /* Signatory position */
+  .cert-page .cert-signatory-pos {
+    font-size: 8.25pt !important;
+  }
+  /* QR code */
+  .cert-page .cert-qr img,
+  .cert-page .cert-qr div {
+    width: 57pt !important;
+    height: 57pt !important;
+  }
+  /* Signature box placeholder */
+  .cert-page .cert-sig-space {
+    height: 54pt !important;
+    width: 156pt !important;
+  }
+  /* Page 2: table text */
+  .cert-page table {
+    font-size: 6.75pt !important;
+  }
+  .cert-page table thead tr th {
+    font-size: 6.75pt !important;
+  }
+  .cert-page table tbody td {
+    font-size: 6.75pt !important;
+  }
+  .cert-page table .font-mono {
+    font-size: 5.25pt !important;
+  }
+  .cert-page h2 {
+    font-size: 9.75pt !important;
+    font-weight: 700 !important;
+  }
+  .cert-page h3 {
+    font-size: 9pt !important;
+    font-weight: 700 !important;
+  }
 }
 
 /* ==========================================================================

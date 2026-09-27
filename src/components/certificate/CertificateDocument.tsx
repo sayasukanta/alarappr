@@ -161,17 +161,17 @@ export default function CertificateDocument({
               <p className="font-certificate-title text-xs sm:text-sm md:text-base text-slate-800 tracking-[0.22em] italic uppercase -mt-0.5">
                 TRAINING CERTIFICATE
               </p>
-              <p className="text-[11px] sm:text-xs md:text-[13px] font-semibold tracking-[0.18em] text-slate-900 mt-1">
+              <p className="cert-number text-[11px] sm:text-xs md:text-[13px] font-semibold tracking-[0.18em] text-slate-900 mt-1">
                 No. {certificateNumber || '02/PPR/HP-ALARA/2026'}
               </p>
             </div>
 
             {/* Pernyataan Bahasa Indonesia & Inggris */}
             <div className="mt-2 space-y-0">
-              <p className="text-xs sm:text-sm md:text-[14.5px] font-bold text-slate-900 tracking-wide">
+              <p className="cert-statement-id text-xs sm:text-sm md:text-[14.5px] font-bold text-slate-900 tracking-wide">
                 Dengan ini menyatakan bahwa
               </p>
-              <p className="text-[10px] sm:text-[11.5px] md:text-xs italic text-slate-700 tracking-normal">
+              <p className="cert-statement-en text-[10px] sm:text-[11.5px] md:text-xs italic text-slate-700 tracking-normal">
                 This is to certify that
               </p>
             </div>
@@ -187,29 +187,30 @@ export default function CertificateDocument({
 
             {/* Program Pelatihan */}
             <div className="mt-1 space-y-0.5 max-w-2xl">
-              <p className="text-[11px] sm:text-xs md:text-sm font-semibold text-slate-800">
+              <p className="cert-program-label text-[11px] sm:text-xs md:text-sm font-semibold text-slate-800">
                 Telah mengikuti Pelatihan Calon PPR
               </p>
-              <p className="text-xs sm:text-[13px] md:text-[15px] font-extrabold text-slate-950 leading-snug">
+              <p className="cert-training-title-id text-xs sm:text-[13px] md:text-[15px] font-extrabold text-slate-950 leading-snug">
                 {displayTitleId}
               </p>
-              <p className="text-[9.5px] sm:text-[10.5px] md:text-xs italic text-slate-600">
+              <p className="cert-program-label-en text-[9.5px] sm:text-[10.5px] md:text-xs italic text-slate-600">
                 Has participated in the training of
               </p>
-              <p className="text-[10px] sm:text-[11px] md:text-[12.5px] italic font-semibold text-slate-800 leading-tight">
+              <p className="cert-training-title-en text-[10px] sm:text-[11px] md:text-[12.5px] italic font-semibold text-slate-800 leading-tight">
                 {displayTitleEn}
               </p>
             </div>
 
             {/* Jadwal Pelaksanaan */}
             <div className="mt-1.5 space-y-0">
-              <p className="text-[10.5px] sm:text-xs md:text-[13px] font-semibold text-slate-800">
+              <p className="cert-date-id text-[10.5px] sm:text-xs md:text-[13px] font-semibold text-slate-800">
                 Yang diselenggarakan pada tanggal {dateId}
               </p>
-              <p className="text-[9px] sm:text-[10px] md:text-[11px] italic text-slate-600">
+              <p className="cert-date-en text-[9px] sm:text-[10px] md:text-[11px] italic text-slate-600">
                 Which was held on {dateEn}
               </p>
             </div>
+
 
             {/* Bagian Bawah: QR Code & Pengesahan Tanda Tangan */}
             <div
@@ -217,7 +218,7 @@ export default function CertificateDocument({
               style={{ paddingBottom: 'calc(5% + 11mm)' }}
             >
               {/* QR Code Verifikasi Keaslian */}
-              <div className="flex items-center text-left">
+              <div className="cert-qr flex items-center text-left">
                 {qrCodeDataUrl ? (
                   <img
                     src={qrCodeDataUrl}
@@ -233,20 +234,20 @@ export default function CertificateDocument({
 
               {/* Tanda Tangan, Stempel Resmi & Nama Pejabat */}
               <div className="text-right flex flex-col items-end">
-                <p className="text-[10.5px] sm:text-[11.5px] md:text-xs text-slate-800 font-medium">
+                <p className="cert-city-date text-[10.5px] sm:text-[11.5px] md:text-xs text-slate-800 font-medium">
                   Jakarta, {issueDateStr}
                 </p>
-                <p className="text-[9.5px] sm:text-[10.5px] md:text-[11px] text-slate-800 font-medium">
+                <p className="cert-behalf text-[9.5px] sm:text-[10.5px] md:text-[11px] text-slate-800 font-medium">
                   Atas nama (<em>on behalf of</em>) CV. Hikmat Proteksi ALARA
                 </p>
 
                 {/* Ruang Kosong untuk Tanda Tangan Basah & Cap Stempel Fisik */}
-                <div className="h-16 md:h-20 w-44 md:w-52" />
+                <div className="cert-sig-space h-16 md:h-20 w-44 md:w-52" />
 
-                <p className="text-[11px] sm:text-xs md:text-[13px] font-bold text-slate-900 tracking-wide">
+                <p className="cert-signatory-name text-[11px] sm:text-xs md:text-[13px] font-bold text-slate-900 tracking-wide">
                   {signatoryName}
                 </p>
-                <p className="text-[9.5px] sm:text-[10.5px] md:text-[11px] text-slate-700">
+                <p className="cert-signatory-pos text-[9.5px] sm:text-[10.5px] md:text-[11px] text-slate-700">
                   {signatoryPosition}
                 </p>
               </div>
