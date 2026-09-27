@@ -117,7 +117,12 @@ export default function ProfilePage() {
         return;
       }
 
-      const cacheBusted = `${json.image}?t=${Date.now()}`;
+      const imageUri = json.image || '';
+      const cacheBusted = imageUri.includes('?') 
+        ? `${imageUri}&t=${Date.now()}` 
+        : imageUri.startsWith('data:') 
+        ? imageUri 
+        : `${imageUri}?t=${Date.now()}`;
       setUserData((prev) => (prev ? { ...prev, image: cacheBusted } : prev));
       if (update) {
         await update({ image: json.image });

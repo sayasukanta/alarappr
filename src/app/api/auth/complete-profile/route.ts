@@ -85,7 +85,7 @@ export async function GET() {
         alamat_domisili: user.alamat_domisili,
         instansi: user.instansi,
         alamat_instansi: user.alamat_instansi,
-        image: user.image,
+        image: user.image?.startsWith("data:") ? `/api/user/avatar?id=${user.id}` : user.image,
         role: user.role,
         hasPassword: !!user.passwordHash,
         isProfileComplete: !!(user.nik && user.phoneNumber),
