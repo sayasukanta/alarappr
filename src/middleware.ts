@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
-import NextAuth from "next-auth";
-import { authConfig } from "@/auth.config";
+import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-const { auth } = NextAuth(authConfig);
-
-export default auth((req) => {
-  const { nextUrl, auth: session } = req as any;
-  const isLoggedIn = !!session;
-  const isProfilePage = nextUrl.pathname === "/profil";
+export async function middleware(req: NextRequest) {
+  const { nextUrl } = req;
   const isAuthPage =
     nextUrl.pathname.startsWith("/login") ||
     nextUrl.pathname === "/register" ||
@@ -24,13 +20,33 @@ export default auth((req) => {
     nextUrl.pathname.endsWith(".ico") ||
     isAuthPage;
 
+  const secret =
+    process.env.AUTH_SECRET ||
+    process.env.NEXTAUTH_SECRET ||
+    "alara-training-system-secret-key-2026";
+
+  const token = await getToken({
+    req,
+    secret,
+    cookieName: req.cookies.has("__Secure-authjs.session-token")
+      ? "__Secure-authjs.session-token"
+      : req.cookies.has("authjs.session-token")
+      ? "authjs.session-token"
+      : req.cookies.has("__Secure-next-auth.session-token")
+      ? "__Secure-next-auth.session-token"
+      : "next-auth.session-token",
+  });
+
+  const isLoggedIn = !!token;
+  const isProfilePage = nextUrl.pathname === "/profil";
+
   if (!isLoggedIn && !isPublicPage) {
     return NextResponse.redirect(new URL("/login", nextUrl));
   }
 
   if (isLoggedIn) {
-    const role = (session as any)?.user?.role;
-    const isProfileComplete = (session as any)?.user?.isProfileComplete;
+    const role = (token as any)?.role;
+    const isProfileComplete = (token as any)?.isProfileComplete;
 
     // Rule: Hanya PESERTA yang diarahkan ke /profil jika NIK / nomor telepon NULL
     if (role === "PESERTA" && isProfileComplete === false && !isProfilePage) {
@@ -71,7 +87,7 @@ export default auth((req) => {
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$|uploads).*)"],
