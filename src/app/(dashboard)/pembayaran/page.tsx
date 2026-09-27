@@ -30,6 +30,7 @@ import {
   RefreshCw,
   CheckCheck,
   Loader2,
+  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import { generateInvoicePdf } from "@/lib/invoice-pdf";
@@ -52,7 +53,38 @@ interface PaymentTimeline {
   current: boolean;
 }
 
+interface BankInfo {
+  bankName: string;
+  bankAccountNumber: string;
+  bankAccountName: string;
+  institutionName: string;
+  ktunNumber: string;
+}
+
+interface TrainingProgram {
+  id: number;
+  category: string;
+  title: string;
+  price: number;
+  durationDays: number;
+  certBadge: string | null;
+}
+
+interface RegistrationOption {
+  id: number;
+  batchNumber: number;
+  trainingId: number;
+  trainingTitle: string;
+  category: string;
+  price: number;
+  paymentStatus: string;
+  startDate: string;
+  endDate: string;
+}
+
 interface PaymentData {
+  registrationId?: number;
+  category?: string;
   invoiceNo: string;
   program: string;
   batch: string;
@@ -226,9 +258,11 @@ function PaymentTimeline({ items }: { items: PaymentTimeline[] }) {
 function UploadBuktiForm({
   onUploaded,
   existingFile,
+  registrationId,
 }: {
   onUploaded: (data: BuktiFormData, file: File) => void;
   existingFile?: string;
+  registrationId?: number;
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -273,6 +307,9 @@ function UploadBuktiForm({
       fd.append("file", file);
       fd.append("namaPengirim", data.namaPengirim);
       fd.append("tanggalBayar", data.tanggalBayar);
+      if (registrationId) {
+        fd.append("registrationId", String(registrationId));
+      }
 
       const res = await fetch("/api/pembayaran/bukti", { method: "POST", body: fd });
 
@@ -384,21 +421,49 @@ function UploadBuktiForm({
 
 export default function PembayaranPage() {
   const [payment, setPayment] = useState<PaymentData | null>(null);
+  const [hasRegistration, setHasRegistration] = useState(true);
+  const [allRegistrations, setAllRegistrations] = useState<RegistrationOption[]>([]);
+  const [selectedRegId, setSelectedRegId] = useState<number | null>(null);
+  const [bankInfo, setBankInfo] = useState<BankInfo>({
+    bankName: "Bank Mandiri",
+    bankAccountNumber: "166-00-0733926-0",
+    bankAccountName: "CV Hikmat Proteksi ALARA",
+    institutionName: "CV. Hikmat Proteksi ALARA",
+    ktunNumber: "No. 07998.722.1.040726",
+  });
+  const [trainingsList, setTrainingsList] = useState<TrainingProgram[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
 
-  const fetchPayment = useCallback(async () => {
+  const fetchPayment = useCallback(async (regId?: number) => {
     try {
-      const res = await fetch("/api/pembayaran");
+      setLoading(true);
+      const url = regId ? `/api/pembayaran?registrationId=${regId}` : "/api/pembayaran";
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
+        if (data.hasRegistration === false) {
+          setHasRegistration(false);
+          setPayment(null);
+          if (data.bankInfo) setBankInfo(data.bankInfo);
+          if (data.trainings) setTrainingsList(data.trainings);
+          return;
+        }
+        setHasRegistration(true);
         setPayment(data);
+        if (data.registrationId) setSelectedRegId(data.registrationId);
+        if (data.allRegistrations) setAllRegistrations(data.allRegistrations);
+        if (data.bankInfo) setBankInfo(data.bankInfo);
+        if (data.trainings) setTrainingsList(data.trainings);
       } else {
-        setPayment(MOCK_PAYMENT);
+        setHasRegistration(false);
+        setPayment(null);
       }
-    } catch {
-      setPayment(MOCK_PAYMENT);
+    } catch (err) {
+      console.error("Error fetching payment:", err);
+      setHasRegistration(false);
+      setPayment(null);
     } finally {
       setLoading(false);
     }
@@ -407,6 +472,14 @@ export default function PembayaranPage() {
   useEffect(() => {
     fetchPayment();
   }, [fetchPayment]);
+
+  const handleSelectRegistration = (regIdStr: string) => {
+    const regId = parseInt(regIdStr, 10);
+    if (!isNaN(regId)) {
+      setSelectedRegId(regId);
+      fetchPayment(regId);
+    }
+  };
 
   const handleBuktiUploaded = async (data: BuktiFormData, file: File) => {
     setUploadModalOpen(false);
@@ -422,7 +495,7 @@ export default function PembayaranPage() {
           }
         : prev
     );
-    await fetchPayment();
+    await fetchPayment(payment?.registrationId || selectedRegId || undefined);
   };
 
   const [downloading, setDownloading] = useState(false);
@@ -431,7 +504,14 @@ export default function PembayaranPage() {
     if (!payment) return;
     setDownloading(true);
     try {
-      generateInvoicePdf(payment);
+      generateInvoicePdf({
+        ...payment,
+        institutionName: bankInfo.institutionName,
+        ktunNumber: bankInfo.ktunNumber,
+        bankName: bankInfo.bankName,
+        bankAccountNumber: bankInfo.bankAccountNumber,
+        bankAccountName: bankInfo.bankAccountName,
+      });
       toast.success("Invoice PDF berhasil diunduh.");
     } catch (error) {
       console.error("Gagal membuat PDF invoice:", error);
@@ -451,16 +531,69 @@ export default function PembayaranPage() {
     );
   }
 
-  if (!payment) {
+  if (!hasRegistration || !payment) {
     return (
-      <div className="max-w-3xl mx-auto text-center py-20">
-        <AlertCircle className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-        <p className="text-slate-500">
-          Anda belum memiliki data pendaftaran / invoice.
-        </p>
-        <Button asChild className="mt-4">
-          <a href="/pendaftaran">Mulai Pendaftaran</a>
-        </Button>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">Pembayaran</h1>
+          <p className="text-sm text-slate-500">
+            Kelola tagihan dan konfirmasi pembayaran pelatihan Anda.
+          </p>
+        </div>
+
+        <Card className="p-8 text-center space-y-4 border-dashed border-2 border-slate-300">
+          <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center mx-auto text-blue-600">
+            <Banknote className="h-6 w-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="font-semibold text-slate-900 text-lg">
+              Belum Ada Tagihan Pembayaran Aktif
+            </h3>
+            <p className="text-sm text-slate-500 max-w-md mx-auto">
+              Anda belum memiliki pendaftaran batch pelatihan yang aktif. Invoice dan tagihan resmi akan otomatis diterbitkan setelah Anda memilih program pelatihan di menu Pendaftaran.
+            </p>
+          </div>
+          <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
+            <a href="/pendaftaran">
+              Daftar Pelatihan Sekarang
+            </a>
+          </Button>
+        </Card>
+
+        {/* Official Database Training Types & Tariffs */}
+        {trainingsList.length > 0 && (
+          <Card className="border border-slate-200 shadow-sm">
+            <CardHeader className="bg-slate-50 border-b py-3 px-5">
+              <CardTitle className="text-base font-semibold text-slate-800 flex items-center gap-2">
+                <FileText className="h-4 w-4 text-blue-600" />
+                Daftar Biaya Resmi Program Pelatihan ALARA (Sesuai Database)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-5">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {trainingsList.map((t) => (
+                  <div key={t.id} className="p-4 rounded-xl border border-slate-200 bg-white hover:border-blue-300 transition-colors space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline" className="text-xs bg-slate-50 font-semibold text-slate-700">
+                        {t.certBadge || "BAPETEN"}
+                      </Badge>
+                      <span className="text-xs text-slate-500">{t.durationDays} Hari</span>
+                    </div>
+                    <p className="font-semibold text-sm text-slate-900 line-clamp-2 leading-snug">
+                      {t.title}
+                    </p>
+                    <div className="pt-2 border-t">
+                      <p className="text-xs text-slate-500">Biaya Investasi:</p>
+                      <p className="text-base font-bold text-blue-700 font-mono">
+                        {formatRupiah(t.price)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     );
   }
@@ -521,6 +654,29 @@ export default function PembayaranPage() {
         </Badge>
       </div>
 
+      {/* Multi-Registration Switcher if user has enrolled in multiple programs */}
+      {allRegistrations.length > 1 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-blue-50/70 border border-blue-200 rounded-xl p-3 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-blue-600 shrink-0" />
+            <span className="text-xs font-semibold text-blue-900">
+              Pilih Tagihan Pelatihan ({allRegistrations.length} Pendaftaran Terdaftar):
+            </span>
+          </div>
+          <select
+            value={payment.registrationId || selectedRegId || ""}
+            onChange={(e) => handleSelectRegistration(e.target.value)}
+            className="text-xs bg-white border border-blue-300 rounded px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 max-w-full"
+          >
+            {allRegistrations.map((r) => (
+              <option key={r.id} value={r.id}>
+                Batch {r.batchNumber} - {r.trainingTitle} ({formatRupiah(r.price)} • {r.paymentStatus === "PAID" ? "LUNAS" : r.paymentStatus})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Status Alert */}
       <div
         className={cn(
@@ -562,9 +718,9 @@ export default function PembayaranPage() {
                   className="h-10 w-10 object-contain rounded-md bg-white p-0.5 shrink-0"
                 />
                 <div>
-                  <p className="font-bold leading-tight">CV Hikmat Proteksi ALARA</p>
+                  <p className="font-bold leading-tight">{bankInfo.institutionName || "CV Hikmat Proteksi ALARA"}</p>
                   <p className="text-xs text-blue-200 leading-tight">
-                    KTUN BAPETEN No. 07998.722.1.040726
+                    {bankInfo.ktunNumber ? `KTUN BAPETEN ${bankInfo.ktunNumber}` : "KTUN BAPETEN No. 07998.722.1.040726"}
                   </p>
                 </div>
               </div>
@@ -586,7 +742,7 @@ export default function PembayaranPage() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Program</span>
-                  <span className="font-medium text-slate-800">{payment.program}</span>
+                  <span className="font-medium text-slate-800 text-right max-w-[65%]">{payment.program}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Batch</span>
@@ -671,19 +827,19 @@ export default function PembayaranPage() {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-semibold text-blue-800 flex items-center gap-2">
                 <Banknote className="h-4 w-4" />
-                Informasi Pembayaran
+                Informasi Rekening Resmi ALARA
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0 space-y-3">
               <p className="text-xs text-blue-600">
-                Transfer ke rekening berikut:
+                Transfer ke rekening resmi lembaga terdaftar:
               </p>
 
               <div className="rounded-lg bg-white border border-blue-200 p-3 space-y-2">
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="text-xs text-slate-500">Bank</p>
-                    <p className="font-bold text-slate-900">Bank Mandiri</p>
+                    <p className="font-bold text-slate-900">{bankInfo.bankName}</p>
                   </div>
                 </div>
                 <Separator />
@@ -691,23 +847,23 @@ export default function PembayaranPage() {
                   <p className="text-xs text-slate-500">Nomor Rekening</p>
                   <div className="flex items-center gap-2 mt-0.5">
                     <p className="font-mono font-bold text-slate-900 text-lg tracking-wider">
-                      166-00-0733926-0
+                      {bankInfo.bankAccountNumber}
                     </p>
-                    <CopyButton value="16600073392600" />
+                    <CopyButton value={bankInfo.bankAccountNumber.replace(/[^0-9]/g, "")} />
                   </div>
                 </div>
                 <Separator />
                 <div>
                   <p className="text-xs text-slate-500">Atas Nama</p>
                   <p className="font-semibold text-slate-900">
-                    CV Hikmat Proteksi ALARA
+                    {bankInfo.bankAccountName}
                   </p>
                 </div>
                 <Separator />
                 <div>
                   <p className="text-xs text-slate-500">Jumlah Transfer</p>
                   <div className="flex items-center gap-2">
-                    <p className="font-bold text-blue-700 text-base">
+                    <p className="font-bold text-blue-700 text-base font-mono">
                       {formatRupiah(payment.amount)}
                     </p>
                     <CopyButton value={payment.amount.toString()} />
@@ -803,6 +959,7 @@ export default function PembayaranPage() {
                   <UploadBuktiForm
                     onUploaded={handleBuktiUploaded}
                     existingFile={payment.buktiFileName}
+                    registrationId={payment.registrationId || selectedRegId || undefined}
                   />
                 </CardContent>
               </Card>
@@ -839,6 +996,7 @@ export default function PembayaranPage() {
             <UploadBuktiForm
               onUploaded={handleBuktiUploaded}
               existingFile={payment.buktiFileName}
+              registrationId={payment.registrationId || selectedRegId || undefined}
             />
           </div>
         </DialogContent>

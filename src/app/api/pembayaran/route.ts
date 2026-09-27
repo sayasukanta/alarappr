@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -10,46 +10,101 @@ export async function GET() {
     }
 
     const userId = parseInt(session.user.id, 10);
+    const { searchParams } = new URL(request.url);
+    const regIdParam = searchParams.get("registrationId");
 
-    const registration = await prisma.registration.findFirst({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        user: true,
-        batch: {
-          include: { training: true },
+    // Fetch official footer/bank settings & all active training types from database
+    const [footer, dbTrainings, registrations] = await Promise.all([
+      prisma.footerSetting.findFirst(),
+      prisma.training.findMany({
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          category: true,
+          title: true,
+          price: true,
+          durationDays: true,
+          certBadge: true,
         },
-        payments: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
+      }),
+      prisma.registration.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          user: true,
+          batch: {
+            include: { training: true },
+          },
+          payments: {
+            orderBy: { createdAt: "desc" },
+          },
         },
-      },
-    });
+      }),
+    ]);
 
-    if (!registration) {
-      return NextResponse.json(
-        { error: "Belum ada pendaftaran aktif" },
-        { status: 404 }
-      );
+    // Parse bank details from footer settings
+    let bankName = "Bank Mandiri";
+    let bankAccountNumber = "166-00-0733926-0";
+    if (footer?.bankName) {
+      const match = footer.bankName.match(/(.*?)(?:No\.?|\s+No\.?)\s*([0-9\-\.]+)/i);
+      if (match) {
+        bankName = match[1].trim() || "Bank Mandiri";
+        bankAccountNumber = match[2].trim() || "166-00-0733926-0";
+      } else {
+        bankName = footer.bankName;
+      }
     }
 
-    const latestPayment = registration.payments[0] ?? null;
+    const bankInfo = {
+      bankName,
+      bankAccountNumber,
+      bankAccountName: footer?.bankAccountName || "CV Hikmat Proteksi ALARA",
+      institutionName: footer?.institutionName || "CV. Hikmat Proteksi ALARA",
+      ktunNumber: footer?.ktunNumber || "No. 07998.722.1.040726",
+    };
+
+    const formattedTrainings = dbTrainings.map((t) => ({
+      id: t.id,
+      category: t.category,
+      title: t.title,
+      price: Number(t.price),
+      durationDays: t.durationDays,
+      certBadge: t.certBadge,
+    }));
+
+    if (registrations.length === 0) {
+      return NextResponse.json({
+        hasRegistration: false,
+        allRegistrations: [],
+        payment: null,
+        bankInfo,
+        trainings: formattedTrainings,
+      });
+    }
+
+    let selectedReg = registrations[0];
+    if (regIdParam) {
+      const found = registrations.find((r) => r.id === parseInt(regIdParam, 10));
+      if (found) selectedReg = found;
+    }
+
+    const latestPayment = selectedReg.payments[0] ?? null;
     const year = new Date().getFullYear();
     const invoiceNo =
       latestPayment?.invoiceNumber ||
-      `INV/ALARA/${year}/${String(registration.id).padStart(4, "0")}/1`;
+      `INV/ALARA/${year}/${String(selectedReg.id).padStart(4, "0")}/1`;
 
     let paymentStatus: "BELUM_BAYAR" | "MENUNGGU_VERIFIKASI" | "LUNAS" | "DITOLAK" =
       "BELUM_BAYAR";
 
     if (
-      registration.paymentStatus === "PAID" ||
+      selectedReg.paymentStatus === "PAID" ||
       latestPayment?.status === "VERIFIED"
     ) {
       paymentStatus = "LUNAS";
     } else if (
       latestPayment?.proofFilePath &&
-      (registration.paymentStatus === "PENDING_VERIFICATION" ||
+      (selectedReg.paymentStatus === "PENDING_VERIFICATION" ||
         latestPayment?.status === "PENDING")
     ) {
       paymentStatus = "MENUNGGU_VERIFIKASI";
@@ -60,17 +115,33 @@ export async function GET() {
     }
 
     // Due date: 7 days after registration created or batch start date
-    const regDate = new Date(registration.createdAt);
+    const regDate = new Date(selectedReg.createdAt);
     const dueDate = new Date(regDate.getTime() + 7 * 24 * 60 * 60 * 1000);
 
     const amount = latestPayment
       ? Number(latestPayment.amount)
-      : Number(registration.batch.training.price);
+      : Number(selectedReg.batch.training.price);
+
+    const allRegistrations = registrations.map((r) => ({
+      id: r.id,
+      batchNumber: r.batch.batchNumber,
+      trainingId: r.batch.training.id,
+      trainingTitle: r.batch.training.title,
+      category: r.batch.training.category,
+      price: Number(r.batch.training.price),
+      paymentStatus: r.paymentStatus,
+      startDate: r.batch.startDate.toISOString(),
+      endDate: r.batch.endDate.toISOString(),
+    }));
 
     return NextResponse.json({
+      hasRegistration: true,
+      registrationId: selectedReg.id,
+      allRegistrations,
       invoiceNo,
-      program: registration.batch.training.title,
-      batch: `Batch ${registration.batch.batchNumber}`,
+      program: selectedReg.batch.training.title,
+      category: selectedReg.batch.training.category,
+      batch: `Batch ${selectedReg.batch.batchNumber}`,
       amount,
       dueDate: dueDate.toISOString().split("T")[0],
       paymentStatus,
@@ -84,9 +155,11 @@ export async function GET() {
         ? latestPayment.paymentDate.toISOString().split("T")[0]
         : undefined,
       paidBy: latestPayment?.senderName ?? undefined,
-      pesertaName: registration.user.fullName,
-      pesertaNik: registration.user.nik || "-",
-      instansi: registration.instansi || registration.user.instansi || "-",
+      pesertaName: selectedReg.user.fullName,
+      pesertaNik: selectedReg.user.nik || "-",
+      instansi: selectedReg.instansi || selectedReg.user.instansi || "-",
+      bankInfo,
+      trainings: formattedTrainings,
     });
   } catch (error) {
     console.error("[PEMBAYARAN_GET]", error);

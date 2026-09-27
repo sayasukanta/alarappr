@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
       formData.get("senderName")) as string | null;
     const tanggalBayar = (formData.get("tanggalBayar") ||
       formData.get("paymentDate")) as string | null;
+    const regIdStr = formData.get("registrationId") as string | null;
 
     if (!file) {
       return NextResponse.json(
@@ -51,14 +52,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const registration = await prisma.registration.findFirst({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      include: {
-        user: true,
-        batch: { include: { training: true } },
-      },
-    });
+    let registration = null;
+    if (regIdStr) {
+      registration = await prisma.registration.findFirst({
+        where: { id: parseInt(regIdStr, 10), userId },
+        include: {
+          user: true,
+          batch: { include: { training: true } },
+        },
+      });
+    }
+
+    if (!registration) {
+      registration = await prisma.registration.findFirst({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          user: true,
+          batch: { include: { training: true } },
+        },
+      });
+    }
 
     if (!registration) {
       return NextResponse.json(
@@ -70,16 +84,20 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    const uploadsDir = path.join(process.cwd(), "public", "uploads", "payments");
-    await mkdir(uploadsDir, { recursive: true });
-
     const ext = file.name.split(".").pop() ?? "jpg";
     const timestamp = Date.now();
     const filename = `payment_${registration.id}_${timestamp}.${ext}`;
+    const uploadsDir = path.join(process.cwd(), "public", "uploads", "payments");
     const filePath = path.join(uploadsDir, filename);
 
-    await writeFile(filePath, buffer);
-    const publicPath = `/uploads/payments/${filename}`;
+    let publicPath = `/uploads/payments/${filename}`;
+    try {
+      await mkdir(uploadsDir, { recursive: true });
+      await writeFile(filePath, buffer);
+    } catch (fsErr) {
+      console.warn("Filesystem read-only (serverless), saving as data URI:", fsErr);
+      publicPath = `data:${file.type};base64,${buffer.toString("base64")}`;
+    }
 
     const existingPendingPayment = await prisma.payment.findFirst({
       where: { registrationId: registration.id, status: "PENDING" },

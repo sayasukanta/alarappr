@@ -10,17 +10,31 @@ export async function POST(req: Request) {
     }
 
     const userId = parseInt((session.user as any).id, 10);
-    const registration = await prisma.registration.findFirst({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-    });
+    const body = await req.json();
+    const { registrationId, dayNumber, sessionType, latitude, longitude } = body;
 
-    if (!registration) {
-      return NextResponse.json({ error: "Registrasi tidak ditemukan" }, { status: 404 });
+    let registration = null;
+    if (registrationId) {
+      registration = await prisma.registration.findFirst({
+        where: { id: parseInt(registrationId, 10), userId },
+      });
+    } else {
+      registration = await prisma.registration.findFirst({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+      });
     }
 
-    const body = await req.json();
-    const { dayNumber, sessionType, latitude, longitude } = body;
+    if (!registration) {
+      return NextResponse.json({ error: "Pendaftaran batch tidak ditemukan" }, { status: 404 });
+    }
+
+    if (registration.registrationStatus !== "APPROVED") {
+      return NextResponse.json(
+        { error: "Pendaftaran batch Anda belum disetujui untuk melakukan presensi." },
+        { status: 403 }
+      );
+    }
 
     const attendance = await prisma.attendance.upsert({
       where: {

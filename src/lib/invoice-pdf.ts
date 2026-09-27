@@ -15,6 +15,11 @@ export interface InvoiceData {
   pesertaName?: string;
   pesertaNik?: string;
   instansi?: string;
+  institutionName?: string;
+  ktunNumber?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankAccountName?: string;
 }
 
 function formatRupiah(amount: number) {
@@ -59,12 +64,12 @@ export function generateInvoicePdf(payment: InvoiceData) {
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
-  doc.text("CV HIKMAT PROTEKSI ALARA", margin + 30, 26);
+  doc.text((payment.institutionName || "CV HIKMAT PROTEKSI ALARA").toUpperCase(), margin + 30, 26);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.text("Lembaga Pelatihan Ketenaganukliran Berizin Resmi BAPETEN", margin + 30, 31);
-  doc.text("SK KTUN BAPETEN No. 07998.722.1.040726 | www.alara.co.id", margin + 30, 36);
+  doc.text(`SK ${payment.ktunNumber || "KTUN BAPETEN No. 07998.722.1.040726"} | www.alara.co.id`, margin + 30, 36);
 
   // INVOICE Title on right side
   doc.setFont("helvetica", "bold");
@@ -267,19 +272,19 @@ export function generateInvoicePdf(payment: InvoiceData) {
   doc.text("Nama Bank", margin + 5, y + 12);
   doc.text(":", margin + 35, y + 12);
   doc.setFont("helvetica", "bold");
-  doc.text("Bank Mandiri", margin + 38, y + 12);
+  doc.text(payment.bankName || "Bank Mandiri", margin + 38, y + 12);
 
   doc.setFont("helvetica", "normal");
   doc.text("Nomor Rekening", margin + 5, y + 17);
   doc.text(":", margin + 35, y + 17);
   doc.setFont("helvetica", "bold");
-  doc.text("166-00-0733926-0", margin + 38, y + 17);
+  doc.text(payment.bankAccountNumber || "166-00-0733926-0", margin + 38, y + 17);
 
   doc.setFont("helvetica", "normal");
   doc.text("Atas Nama", margin + 5, y + 22);
   doc.text(":", margin + 35, y + 22);
   doc.setFont("helvetica", "bold");
-  doc.text("CV Hikmat Proteksi ALARA", margin + 38, y + 22);
+  doc.text(payment.bankAccountName || "CV Hikmat Proteksi ALARA", margin + 38, y + 22);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
