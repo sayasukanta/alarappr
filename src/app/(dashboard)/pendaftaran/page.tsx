@@ -192,7 +192,7 @@ const STEPS = [
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatRupiah(amount: number) {
-  if (amount === 0) return "Hubungi Admin";
+  if (!amount || amount <= 0) return "Hubungi Admin";
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",

@@ -27,7 +27,7 @@ import { HeroSlideCarousel } from '@/components/HeroSlideCarousel';
 // ---------------------------------------------------------------------------
 function formatRupiah(amount: number | string | any) {
   const num = Number(amount);
-  if (!num || num <= 0) return 'Hubungi Kami';
+  if (!num || num <= 0) return 'Hubungi Admin';
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',

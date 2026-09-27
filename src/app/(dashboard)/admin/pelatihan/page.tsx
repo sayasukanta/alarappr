@@ -73,6 +73,7 @@ const CATEGORY_MAP: Record<TrainingCategory, { label: string; badgeCls: string }
 };
 
 function formatRupiah(amount: number) {
+  if (!amount || amount <= 0) return 'Hubungi Admin';
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
@@ -606,9 +607,18 @@ export default function JenisPelatihanPage() {
                   step="50000"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
-                  placeholder="Contoh: 5000000"
+                  placeholder="Contoh: 5000000 (Isi 0 untuk Hubungi Admin)"
                   required
                 />
+                <p className="text-[11px] text-gray-500">
+                  {price !== '' && Number(price) === 0 ? (
+                    <span className="text-amber-600 font-medium">Biaya Rp 0 akan otomatis tampil sebagai &quot;Hubungi Admin&quot; pada katalog pendaftaran</span>
+                  ) : price ? (
+                    `Pratinjau: ${formatRupiah(Number(price))}`
+                  ) : (
+                    "Ketik 0 jika biaya fleksibel / memerlukan konsultasi admin."
+                  )}
+                </p>
               </div>
 
               <div className="space-y-1.5">

@@ -53,6 +53,7 @@ const STATUS_MAP = {
 };
 
 function formatRupiah(n: number) {
+  if (!n || n <= 0) return 'Hubungi Admin';
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
 }
 

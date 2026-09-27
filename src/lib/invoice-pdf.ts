@@ -23,6 +23,7 @@ export interface InvoiceData {
 }
 
 function formatRupiah(amount: number) {
+  if (!amount || amount <= 0) return "Hubungi Admin";
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
