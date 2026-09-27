@@ -166,9 +166,12 @@
   }
   .cert-page {
     width: 297mm !important;
+    max-width: 297mm !important;
+    min-width: 297mm !important;
     height: 210mm !important;
     max-height: 210mm !important;
     min-height: 210mm !important;
+    aspect-ratio: 297 / 210 !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     page-break-after: always !important;

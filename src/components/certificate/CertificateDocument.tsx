@@ -115,7 +115,7 @@ export default function CertificateDocument({
           style={{
             width: '100%',
             maxWidth: '1024px',
-            aspectRatio: '1024 / 653',
+            aspectRatio: '297 / 210',
           }}
         >
           {/* Latar Belakang Bingkai Geometris (Navy & Copper Gold) */}
@@ -264,7 +264,7 @@ export default function CertificateDocument({
           style={{
             width: '100%',
             maxWidth: '1024px',
-            aspectRatio: '1024 / 653',
+            aspectRatio: '297 / 210',
           }}
         >
           {/* Latar Belakang Bingkai Geometris (Navy & Copper Gold) */}
