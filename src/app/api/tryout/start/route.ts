@@ -71,6 +71,16 @@ export async function POST(request: NextRequest) {
     const userRole = (session.user as any)?.role;
     const now = new Date();
 
+    // Check registration for regular participants
+    if (!registration && userRole !== "ADMIN") {
+      return NextResponse.json(
+        {
+          error: "Anda belum terdaftar dalam batch pelatihan manapun. Silakan mendaftar batch terlebih dahulu.",
+        },
+        { status: 403 }
+      );
+    }
+
     // Check tryout window for regular participants
     if (registration && userRole !== "ADMIN") {
       const b = registration.batch;

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { getUserBatchScheduleStatus } from "@/lib/batch-schedule";
 
 export async function GET() {
   try {
@@ -12,29 +13,49 @@ export async function GET() {
     const userId = parseInt((session.user as any).id, 10);
     const userRole = (session.user as any).role;
 
-    const registration = await prisma.registration.findFirst({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-    });
-
     // If admin or instructor, show all logbooks
     if (userRole === "ADMIN" || userRole === "INSTRUCTOR") {
       const allLogbooks = await prisma.logbook.findMany({
         orderBy: { practiceDate: "desc" },
       });
-      return NextResponse.json(allLogbooks);
+      return NextResponse.json({
+        logbooks: allLogbooks,
+        schedule: {
+          hasRegistration: true,
+          registrationStatus: "APPROVED",
+          isOpen: true,
+          isLocked: false,
+          startTime: null,
+          endTime: null,
+          remainingMinutes: 0,
+          statusMessage: "Mode Instruktur / Admin: Akses penuh untuk pemantauan dan digital sign-off logbook.",
+          batchName: null,
+        },
+        isLocked: false,
+      });
     }
 
-    if (!registration) {
-      return NextResponse.json([]);
+    // Check user's batch and schedule status
+    const scheduleStatus = await getUserBatchScheduleStatus(userId);
+
+    if (!scheduleStatus.hasRegistration || !scheduleStatus.registrationId) {
+      return NextResponse.json({
+        logbooks: [],
+        schedule: scheduleStatus,
+        isLocked: true,
+      });
     }
 
     const logbooks = await prisma.logbook.findMany({
-      where: { registrationId: registration.id },
+      where: { registrationId: scheduleStatus.registrationId },
       orderBy: { practiceDate: "desc" },
     });
 
-    return NextResponse.json(logbooks);
+    return NextResponse.json({
+      logbooks,
+      schedule: scheduleStatus,
+      isLocked: scheduleStatus.isLocked,
+    });
   } catch (error) {
     console.error("Error fetching logbooks:", error);
     return NextResponse.json({ error: "Gagal mengambil data logbook" }, { status: 500 });
@@ -51,43 +72,46 @@ export async function POST(req: Request) {
     const userId = parseInt((session.user as any).id, 10);
     const userRole = (session.user as any).role;
 
-    let registration = await prisma.registration.findFirst({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-    });
+    let registrationId: number | null = null;
 
-    // If user has no registration yet:
-    if (!registration) {
-      // 1. If admin or instructor, link to the latest existing registration
-      if (userRole === "ADMIN" || userRole === "INSTRUCTOR") {
-        registration = await prisma.registration.findFirst({
-          orderBy: { id: "desc" },
-        });
+    if (userRole === "ADMIN" || userRole === "INSTRUCTOR") {
+      const reg = await prisma.registration.findFirst({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+      }) || await prisma.registration.findFirst({
+        orderBy: { id: "desc" },
+      });
+
+      if (!reg) {
+        return NextResponse.json(
+          { error: "Belum ada registrasi batch dalam sistem untuk menghubungkan logbook." },
+          { status: 400 }
+        );
+      }
+      registrationId = reg.id;
+    } else {
+      // Validate registration and schedule for regular participants
+      const scheduleStatus = await getUserBatchScheduleStatus(userId);
+
+      if (!scheduleStatus.hasRegistration || !scheduleStatus.registrationId) {
+        return NextResponse.json(
+          {
+            error: scheduleStatus.statusMessage || "Anda belum terdaftar dalam batch pelatihan manapun. Silakan mendaftar batch terlebih dahulu.",
+          },
+          { status: 403 }
+        );
       }
 
-      // 2. If still no registration (participant without batch or empty system), auto-assign to active batch
-      if (!registration) {
-        const defaultBatch = await prisma.trainingBatch.findFirst({
-          orderBy: { id: "asc" },
-        });
-        if (defaultBatch) {
-          registration = await prisma.registration.create({
-            data: {
-              userId,
-              batchId: defaultBatch.id,
-              registrationStatus: "APPROVED",
-              paymentStatus: "PAID",
-            },
-          });
-        }
+      if (scheduleStatus.isLocked || !scheduleStatus.isOpen) {
+        return NextResponse.json(
+          {
+            error: scheduleStatus.statusMessage || "Pengisian logbook praktikum saat ini terkunci.",
+          },
+          { status: 403 }
+        );
       }
-    }
 
-    if (!registration) {
-      return NextResponse.json(
-        { error: "Pendaftaran pelatihan tidak ditemukan. Silakan pilih batch pelatihan terlebih dahulu." },
-        { status: 400 }
-      );
+      registrationId = scheduleStatus.registrationId;
     }
 
     const body = await req.json();
@@ -114,7 +138,7 @@ export async function POST(req: Request) {
 
     const newLogbook = await prisma.logbook.create({
       data: {
-        registrationId: registration.id,
+        registrationId,
         location: body.location?.trim() || "Fasilitas Radiasi",
         practiceDate,
         dosisLaju: parsedDosis,

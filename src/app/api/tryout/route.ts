@@ -113,7 +113,9 @@ export async function GET() {
       durationMinutes: 60,
       questionCount: batchQCount,
       remainingMinutes: 0,
-      statusMessage: "Sesi ujian tryout saat ini belum dibuka oleh Admin / Pengawas.",
+      statusMessage: activeReg
+        ? "Sesi ujian tryout saat ini belum dibuka oleh Admin / Pengawas."
+        : "Anda belum terdaftar dalam batch pelatihan manapun. Silakan mendaftar batch terlebih dahulu untuk mengikuti sesi tryout.",
       batchName: activeReg ? `Batch ${activeReg.batch.batchNumber} - ${activeReg.batch.training.title}` : null,
     };
 

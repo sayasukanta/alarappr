@@ -8,9 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { FileText, CheckCircle2, Clock, Plus, ShieldCheck, MapPin, Building } from "lucide-react";
+import { FileText, CheckCircle2, Clock, Plus, ShieldCheck, MapPin, Building, Lock } from "lucide-react";
 import { toast } from "sonner";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, cn } from "@/lib/utils";
 
 interface LogbookEntry {
   id: number;
@@ -25,8 +25,21 @@ interface LogbookEntry {
   createdAt: string;
 }
 
+interface BatchSchedule {
+  hasRegistration: boolean;
+  registrationStatus: string | null;
+  isOpen: boolean;
+  isLocked: boolean;
+  startTime: string | null;
+  endTime: string | null;
+  remainingMinutes: number;
+  statusMessage: string;
+  batchName: string | null;
+}
+
 export default function LogbookPage() {
   const [logbooks, setLogbooks] = useState<LogbookEntry[]>([]);
+  const [schedule, setSchedule] = useState<BatchSchedule | null>(null);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -44,7 +57,14 @@ export default function LogbookPage() {
       const res = await fetch("/api/logbook");
       if (res.ok) {
         const data = await res.json();
-        setLogbooks(data);
+        if (Array.isArray(data)) {
+          setLogbooks(data);
+        } else {
+          setLogbooks(data.logbooks || []);
+          if (data.schedule) {
+            setSchedule(data.schedule);
+          }
+        }
       } else {
         // Mock fallback if DB empty
         setLogbooks([
@@ -73,8 +93,14 @@ export default function LogbookPage() {
     fetchLogbooks();
   }, []);
 
+  const isLocked = schedule ? schedule.isLocked : false;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLocked) {
+      toast.error(schedule?.statusMessage || "Pengisian logbook praktikum saat ini terkunci.");
+      return;
+    }
     setSubmitting(true);
     try {
       const parsedDosis = dosisLaju ? parseFloat(dosisLaju) : null;
@@ -117,14 +143,73 @@ export default function LogbookPage() {
             Pencatatan dan digital sign-off kegiatan praktikum proteksi radiasi sesuai Peraturan BAPETEN No. 4/2024
           </p>
         </div>
-        <Button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
-        >
-          <Plus className="h-4 w-4" />
-          {showForm ? "Tutup Form" : "Tambah Kegiatan Praktikum"}
-        </Button>
+        {isLocked ? (
+          <Button
+            disabled
+            variant="outline"
+            className="bg-slate-100 text-slate-400 border-slate-300 cursor-not-allowed gap-1.5"
+            title={schedule?.statusMessage || "Logbook terkunci"}
+          >
+            <Lock className="h-4 w-4 text-slate-400" />
+            Terkunci
+          </Button>
+        ) : (
+          <Button
+            onClick={() => setShowForm(!showForm)}
+            className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
+          >
+            <Plus className="h-4 w-4" />
+            {showForm ? "Tutup Form" : "Tambah Kegiatan Praktikum"}
+          </Button>
+        )}
       </div>
+
+      {/* Schedule / Lock Banner */}
+      {schedule && (
+        <div
+          className={cn(
+            "rounded-xl border p-4 sm:p-5 transition-all",
+            schedule.isOpen
+              ? "bg-emerald-50/70 border-emerald-200 text-emerald-950"
+              : "bg-amber-50/80 border-amber-200 text-amber-950"
+          )}
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                {schedule.isOpen ? (
+                  <>
+                    <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-xs font-semibold uppercase tracking-wider text-emerald-800">
+                      Sesi Praktikum Aktif
+                    </span>
+                    {schedule.remainingMinutes > 0 && (
+                      <Badge className="bg-emerald-600 hover:bg-emerald-700 text-[10px] text-white">
+                        Tersisa ~{schedule.remainingMinutes} Menit
+                      </Badge>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Lock className="w-5 h-5 text-amber-600" />
+                    <span className="text-sm font-semibold text-amber-900">
+                      Logbook Praktikum Terkunci / Belum Dibuka
+                    </span>
+                  </>
+                )}
+              </div>
+              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
+                {schedule.statusMessage}
+              </p>
+              {schedule.batchName && (
+                <p className="text-[11px] text-slate-500 font-mono">
+                  Pelatihan: {schedule.batchName} • Hubungi admin/instruktur jika jadwal praktikum telah tiba.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Info Box */}
       <Alert className="bg-blue-50 border-blue-200">
@@ -135,7 +220,7 @@ export default function LogbookPage() {
       </Alert>
 
       {/* Entry Form */}
-      {showForm && (
+      {showForm && !isLocked && (
         <Card className="border-blue-300 shadow-sm animate-in fade-in">
           <CardHeader className="bg-slate-50 border-b">
             <CardTitle className="text-base font-semibold text-slate-800">
