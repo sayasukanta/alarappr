@@ -1,0 +1,641 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PESERTA
+  ADMIN
+  INSTRUCTOR
+  SPONSOR
+}
+
+enum TrainingCategory {
+  PPR_ANALISIS
+  PPR_BAGASI
+  PKR_PEKERJA
+}
+
+enum RegistrationStatus {
+  DRAFT
+  MENUNGGU_VERIFIKASI
+  APPROVED
+  REJECTED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PENDING_VERIFICATION
+  PAID
+}
+
+enum DocType {
+  IJAZAH
+  MCU
+  KTP
+  SURAT_KERJA
+  PASFOTO
+  NPWP
+}
+
+enum AttendanceStatus {
+  HADIR
+  IZIN
+  ALPA
+}
+
+enum SessionType {
+  MORNING
+  AFTERNOON
+}
+
+enum ExamFinalStatus {
+  LULUS
+  TIDAK_LULUS
+  REMIDIAL
+}
+
+enum InstructorStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum InstructorSessionType {
+  THEORY
+  PRACTICAL
+  TRYOUT_REVIEW
+}
+
+enum PaymentVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum TryoutStatus {
+  LULUS_TRYOUT
+  BELUM_LULUS
+}
+
+enum BatchStatus {
+  RENCANA
+  PELAKSANAAN
+  SELESAI
+}
+
+// =====================
+// USERS
+// =====================
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String?  @map("password_hash")
+  fullName     String   @map("full_name")
+  nik             String?   @unique
+  tempat_lahir    String?   @map("tempat_lahir")
+  tanggal_lahir   DateTime? @map("tanggal_lahir") @db.Date
+  phoneNumber     String?   @map("phone_number")
+  alamat_domisili String?   @map("alamat_domisili") @db.VarChar(500)
+  instansi        String?   @map("instansi")
+  alamat_instansi String?   @map("alamat_instansi") @db.VarChar(500)
+  role            UserRole  @default(PESERTA)
+  image        String?  @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  registrations           Registration[]
+  verifiedDocuments       RegistrationDocument[] @relation("VerifiedByUser")
+  instructor              Instructor?
+  instructorEvaluationsGiven InstructorEvaluation[] @relation("ParticipantEvaluations")
+  lmsProgress             LmsProgress[]
+
+  @@map("users")
+}
+
+// =====================
+// TRAININGS
+// =====================
+model Training {
+  id             Int                      @id @default(autoincrement())
+  category       TrainingCategory
+  title          String
+  titleEn        String?                  @map("title_en")
+  certHeaderId   String?                  @map("cert_header_id")
+  certSubtitleId String?                  @map("cert_subtitle_id")
+  certHeaderEn   String?                  @map("cert_header_en")
+  certBadge      String?                  @default("BAPETEN") @map("cert_badge")
+  price          Decimal                  @db.Decimal(12, 2)
+  durationDays   Int                      @default(3) @map("duration_days")
+  description    String?                  @db.Text
+  createdAt      DateTime                 @default(now()) @map("created_at")
+
+  // Relations
+  batches         TrainingBatch[]
+  competencyUnits TrainingCompetencyUnit[]
+  questions       Question[]
+  lmsModules      LmsModule[]
+
+  @@map("trainings")
+}
+
+// =====================
+// TRAINING COMPETENCY UNITS (HALAMAN 2 SERTIFIKAT)
+// =====================
+model TrainingCompetencyUnit {
+  id             Int      @id @default(autoincrement())
+  trainingId     Int      @map("training_id")
+  sectionCode    String   @default("A") @map("section_code") // "A", "B", "C", "D"
+  sectionTitle   String   @map("section_title")
+  unitNo         String   @map("unit_no") // "1.", "2."
+  mataAjar       String   @map("mata_ajar") @db.Text
+  kode           String   @map("kode")
+  kodeKompetensi String?  @map("kode_kompetensi") @db.Text
+  jp             Int      @default(2)
+  orderIndex     Int      @default(1) @map("order_index")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  training Training @relation(fields: [trainingId], references: [id], onDelete: Cascade)
+
+  @@index([trainingId, sectionCode])
+  @@map("training_competency_units")
+}
+
+// =====================
+// TRAINING BATCHES
+// =====================
+model TrainingBatch {
+  id          Int         @id @default(autoincrement())
+  trainingId  Int         @map("training_id")
+  batchNumber Int         @map("batch_number")
+  startDate   DateTime    @map("start_date")
+  endDate     DateTime    @map("end_date")
+  quota       Int
+  location    String?
+  status      BatchStatus @default(RENCANA)
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  // Pengaturan Waktu Ujian Tryout
+  tryoutOpen            Boolean     @default(false) @map("tryout_open")
+  tryoutStartTime       DateTime?   @map("tryout_start_time")
+  tryoutEndTime         DateTime?   @map("tryout_end_time")
+  tryoutDurationMinutes Int?        @default(60) @map("tryout_duration_minutes")
+  tryoutQuestionCount   Int?        @default(20) @map("tryout_question_count")
+  tryoutSelectionMode   String      @default("AUTOMATIC") @map("tryout_selection_mode") // "AUTOMATIC" | "MANUAL"
+
+  // Dokumentasi Kegiatan Batch (Google Drive / YouTube)
+  documentationUrl      String?     @map("documentation_url") @db.Text
+  documentationTitle    String?     @map("documentation_title") @db.VarChar(255)
+
+  // Relations
+  training              Training               @relation(fields: [trainingId], references: [id])
+  registrations         Registration[]
+  instructorAssignments InstructorAssignment[]
+  instructorEvaluations InstructorEvaluation[]
+  selectedTryoutQuestions BatchTryoutQuestion[]
+
+  @@map("training_batches")
+}
+
+// =====================
+// REGISTRATIONS
+// =====================
+model Registration {
+  id                 Int                @id @default(autoincrement())
+  userId             Int                @map("user_id")
+  batchId            Int                @map("batch_id")
+  registrationStatus RegistrationStatus @default(DRAFT) @map("registration_status")
+  paymentStatus      PaymentStatus      @default(UNPAID) @map("payment_status")
+  sponsorName        String?            @map("sponsor_name")
+  sponsorNpwp        String?            @map("sponsor_npwp")
+  // Profil data
+  tempat_lahir       String?
+  tanggal_lahir      DateTime?
+  alamat             String?            @db.Text
+  instansi           String?
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  // Relations
+  user          User                   @relation(fields: [userId], references: [id])
+  batch         TrainingBatch          @relation(fields: [batchId], references: [id])
+  documents     RegistrationDocument[]
+  payments      Payment[]
+  attendances   Attendance[]
+  examResult    ExamResult?
+  tryoutAttempts TryoutAttempt[]
+
+  @@map("registrations")
+}
+
+// =====================
+// REGISTRATION DOCUMENTS
+// =====================
+model RegistrationDocument {
+  id             Int       @id @default(autoincrement())
+  registrationId Int       @map("registration_id")
+  docType        DocType   @map("doc_type")
+  filePath       String    @map("file_path")
+  isValid        Boolean?  @map("is_valid")
+  notes          String?   @db.Text
+  verifiedBy     Int?      @map("verified_by")
+  verifiedAt     DateTime? @map("verified_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  // MCU specific
+  mcuIssueDate   DateTime? @map("mcu_issue_date")
+  hasDarah       Boolean?  @map("has_darah")
+  hasUrine       Boolean?  @map("has_urine")
+
+  // Relations
+  registration Registration @relation(fields: [registrationId], references: [id])
+  verifier     User?        @relation("VerifiedByUser", fields: [verifiedBy], references: [id])
+
+  @@map("registration_documents")
+}
+
+// =====================
+// PAYMENTS
+// =====================
+model Payment {
+  id             Int                       @id @default(autoincrement())
+  registrationId Int                       @map("registration_id")
+  amount         Decimal                   @db.Decimal(12, 2)
+  bankName       String                    @default("Mandiri") @map("bank_name")
+  proofFilePath  String?                   @map("proof_file_path")
+  paymentDate    DateTime?                 @map("payment_date")
+  senderName     String?                   @map("sender_name")
+  status         PaymentVerificationStatus @default(PENDING)
+  rejectionNote  String?                   @map("rejection_note") @db.Text
+  verifiedBy     Int?                      @map("verified_by")
+  verifiedAt     DateTime?                 @map("verified_at")
+  invoiceNumber  String?                   @unique @map("invoice_number")
+  createdAt      DateTime                  @default(now()) @map("created_at")
+
+  // Relations
+  registration Registration @relation(fields: [registrationId], references: [id])
+
+  @@map("payments")
+}
+
+// =====================
+// ATTENDANCES
+// =====================
+model Attendance {
+  id             Int              @id @default(autoincrement())
+  registrationId Int              @map("registration_id")
+  dayNumber      Int              @map("day_number") // 1, 2, 3
+  sessionType    SessionType      @map("session_type")
+  checkinTime    DateTime?        @map("checkin_time")
+  status         AttendanceStatus @default(HADIR)
+  selfieUrl      String?          @map("selfie_url")
+  latitude       Float?
+  longitude      Float?
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  registration Registration @relation(fields: [registrationId], references: [id])
+
+  @@unique([registrationId, dayNumber, sessionType])
+  @@map("attendances")
+}
+
+// =====================
+// EXAM RESULTS
+// =====================
+model ExamResult {
+  id                    Int              @id @default(autoincrement())
+  registrationId        Int              @unique @map("registration_id")
+  tryoutScore           Float?           @map("tryout_score")
+  bapetenTheoryScore    Float?           @map("bapeten_theory_score")
+  bapetenPracticalScore Float?           @map("bapeten_practical_score")
+  bapetenInterviewScore Float?           @map("bapeten_interview_score")
+  finalStatus           ExamFinalStatus? @map("final_status")
+  certificateNumber     String?          @unique @map("certificate_number")
+  issuedAt              DateTime?        @map("issued_at")
+  signatoryId           Int?             @map("signatory_id")
+  signedCertificateUrl  String?          @map("signed_certificate_url")
+  signedCertificateName String?          @map("signed_certificate_name")
+  signedUploadedAt      DateTime?        @map("signed_uploaded_at")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
+
+  // Relations
+  registration Registration          @relation(fields: [registrationId], references: [id])
+  signatory    CertificateSignatory? @relation(fields: [signatoryId], references: [id])
+
+  @@map("exam_results")
+}
+
+// =====================
+// INSTRUCTORS
+// =====================
+model Instructor {
+  id               Int              @id @default(autoincrement())
+  userId           Int              @unique @map("user_id")
+  bapetenLicenseNo String?          @map("bapeten_license_no")
+  licenseExpiryDate DateTime?       @map("license_expiry_date")
+  iaeaCertification Boolean        @default(false) @map("iaea_certification")
+  specialization   TrainingCategory
+  bioSummary       String?          @map("bio_summary") @db.Text
+  status           InstructorStatus @default(ACTIVE)
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  user        User                   @relation(fields: [userId], references: [id])
+  assignments InstructorAssignment[]
+  evaluations InstructorEvaluation[]
+
+  @@map("instructors")
+}
+
+// =====================
+// INSTRUCTOR ASSIGNMENTS
+// =====================
+model InstructorAssignment {
+  id            Int                   @id @default(autoincrement())
+  batchId       Int                   @map("batch_id")
+  instructorId  Int                   @map("instructor_id")
+  sessionName   String                @map("session_name")
+  teachingDate  DateTime              @map("teaching_date")
+  startTime     String                @map("start_time")
+  endTime       String                @map("end_time")
+  sessionType   InstructorSessionType @map("session_type")
+  teachingHours Float                 @map("teaching_hours")
+  confirmed     Boolean               @default(false)
+  createdAt     DateTime              @default(now()) @map("created_at")
+
+  // Relations
+  batch      TrainingBatch @relation(fields: [batchId], references: [id])
+  instructor Instructor    @relation(fields: [instructorId], references: [id])
+
+  @@map("instructor_assignments")
+}
+
+// =====================
+// INSTRUCTOR EVALUATIONS
+// =====================
+model InstructorEvaluation {
+  id            Int      @id @default(autoincrement())
+  batchId       Int      @map("batch_id")
+  instructorId  Int      @map("instructor_id")
+  participantId Int      @map("participant_id")
+  ratingScore   Float    @map("rating_score") // 1-5
+  feedbackNotes String?  @map("feedback_notes") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  // Relations
+  batch       TrainingBatch @relation(fields: [batchId], references: [id])
+  instructor  Instructor    @relation(fields: [instructorId], references: [id])
+  participant User          @relation("ParticipantEvaluations", fields: [participantId], references: [id])
+
+  @@map("instructor_evaluations")
+}
+
+// =====================
+// LMS MODULES
+// =====================
+model LmsModule {
+  id               Int              @id @default(autoincrement())
+  trainingCategory TrainingCategory @map("training_category")
+  trainingId       Int?             @map("training_id")
+  dayNumber        Int              @map("day_number") // 1, 2, 3
+  title            String
+  description      String?          @db.Text
+  moduleType       String           @default("reading") @map("module_type") // reading, video, quiz, file
+  durationMinutes  Int              @default(45) @map("duration_minutes")
+  content          String?          @db.LongText
+  contentPath      String?          @map("content_path")
+  fileUrl          String?          @map("file_url")
+  fileName         String?          @map("file_name")
+  fileSize         String?          @map("file_size")
+  videoUrl         String?          @map("video_url")
+  pageCount        Int              @default(1) @map("page_count")
+  orderIndex       Int              @default(1) @map("order_index")
+  isPublished      Boolean          @default(true) @map("is_published")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at")
+
+  training         Training?        @relation(fields: [trainingId], references: [id], onDelete: SetNull)
+  progressRecords  LmsProgress[]
+
+  @@index([trainingCategory, dayNumber])
+  @@map("lms_modules")
+}
+
+// =====================
+// LMS PROGRESS (PELACAKAN PROGRES PESERTA)
+// =====================
+model LmsProgress {
+  id             Int       @id @default(autoincrement())
+  userId         Int       @map("user_id")
+  moduleId       Int       @map("module_id")
+  status         String    @default("in_progress") // completed, in_progress
+  completedAt    DateTime? @map("completed_at")
+  lastAccessedAt DateTime  @default(now()) @map("last_accessed_at")
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module         LmsModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, moduleId])
+  @@index([userId])
+  @@index([moduleId])
+  @@map("lms_progress")
+}
+
+// =====================
+// LOGBOOK PRAKTIKUM
+// =====================
+model Logbook {
+  id              Int       @id @default(autoincrement())
+  registrationId  Int       @map("registration_id")
+  practiceDate    DateTime  @map("practice_date")
+  location        String
+  dosisLaju       Float?    @map("dosis_laju")
+  kondisiInterlock String?  @map("kondisi_interlock") @db.Text
+  penggunaanDosimeter String? @map("penggunaan_dosimeter") @db.Text
+  notes           String?   @db.Text
+  signedOffBy     Int?      @map("signed_off_by")
+  signedOffAt     DateTime? @map("signed_off_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  @@map("logbooks")
+}
+
+// =====================
+// QUESTION BANK (BANK SOAL)
+// =====================
+model Question {
+  id           Int              @id @default(autoincrement())
+  category     TrainingCategory
+  trainingId   Int?             @map("training_id")
+  topic        String           // e.g. "Regulasi BAPETEN", "Fisika Radiasi"
+  questionText String           @map("question_text") @db.Text
+  imageUrl     String?          @map("image_url")
+  optionA      String           @map("option_a") @db.Text
+  optionB      String           @map("option_b") @db.Text
+  optionC      String           @map("option_c") @db.Text
+  optionD      String           @map("option_d") @db.Text
+  optionE      String?          @map("option_e") @db.Text
+  correctAnswer String          @map("correct_answer") // "A","B","C","D","E"
+  explanation  String?          @db.Text
+  difficulty   Int              @default(1) // 1=easy, 2=medium, 3=hard
+  isActive     Boolean          @default(true) @map("is_active")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @default(now()) @updatedAt @map("updated_at")
+
+  // Relations
+  training        Training?             @relation(fields: [trainingId], references: [id], onDelete: SetNull)
+  tryoutAnswers   TryoutAnswer[]
+  batchSelections BatchTryoutQuestion[]
+
+  @@map("questions")
+}
+
+// =====================
+// BATCH TRYOUT QUESTIONS (PILIHAN MANUAL SOAL PER BATCH)
+// =====================
+model BatchTryoutQuestion {
+  id         Int           @id @default(autoincrement())
+  batchId    Int           @map("batch_id")
+  questionId Int           @map("question_id")
+  orderIndex Int           @default(1) @map("order_index")
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  batch      TrainingBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  question   Question      @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, questionId])
+  @@index([batchId])
+  @@map("batch_tryout_questions")
+}
+
+// =====================
+// TRYOUT ATTEMPTS
+// =====================
+model TryoutAttempt {
+  id             Int          @id @default(autoincrement())
+  registrationId Int          @map("registration_id")
+  startedAt      DateTime     @default(now()) @map("started_at")
+  submittedAt    DateTime?    @map("submitted_at")
+  totalScore     Float?       @map("total_score")
+  status         TryoutStatus? 
+  tabSwitchCount Int          @default(0) @map("tab_switch_count")
+  timeExpired    Boolean      @default(false) @map("time_expired")
+
+  // Relations
+  registration Registration  @relation(fields: [registrationId], references: [id])
+  answers      TryoutAnswer[]
+
+  @@map("tryout_attempts")
+}
+
+// =====================
+// TRYOUT ANSWERS
+// =====================
+model TryoutAnswer {
+  id              Int    @id @default(autoincrement())
+  attemptId       Int    @map("attempt_id")
+  questionId      Int    @map("question_id")
+  selectedAnswer  String? @map("selected_answer")
+  isMarked        Boolean @default(false) @map("is_marked") // ragu-ragu
+  isCorrect       Boolean? @map("is_correct")
+
+  // Relations
+  attempt  TryoutAttempt @relation(fields: [attemptId], references: [id])
+  question Question       @relation(fields: [questionId], references: [id])
+
+  @@unique([attemptId, questionId])
+  @@map("tryout_answers")
+}
+
+// =====================
+// CERTIFICATE SIGNATORIES
+// =====================
+model CertificateSignatory {
+  id           Int          @id @default(autoincrement())
+  name         String       @db.VarChar(255)
+  position     String       @db.VarChar(255)
+  institution  String       @default("CV. HIKMAT PROTEKSI ALARA") @db.VarChar(255)
+  nip          String?      @db.VarChar(100)
+  signatureUrl String?      @map("signature_url") @db.VarChar(500)
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  examResults  ExamResult[]
+
+  @@map("certificate_signatories")
+}
+
+// =====================
+// PENGATURAN MENU PENGGUNA (USER MENU SETTINGS)
+// =====================
+model UserMenuSetting {
+  id          Int      @id @default(autoincrement())
+  menuKey     String   @unique @map("menu_key")
+  label       String
+  href        String
+  iconName    String?  @map("icon_name")
+  isVisible   Boolean  @default(true) @map("is_visible")
+  orderIndex  Int      @default(1) @map("order_index")
+  description String?  @db.Text
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("user_menu_settings")
+}
+
+// =====================
+// PENGATURAN FOOTER & KONTAK (FOOTER & CONTACT SETTINGS)
+// =====================
+model FooterSetting {
+  id               Int      @id @default(autoincrement())
+  phone            String   @default("+62 812-3456-7890")
+  email            String   @default("info@hikmatproteksi.com")
+  address          String   @default("Indonesia")
+  mapUrl           String?  @map("map_url") @db.Text
+
+  brandTitle       String   @default("ALARA Training System") @map("brand_title")
+  brandSubtitle    String   @default("CV. Hikmat Proteksi ALARA") @map("brand_subtitle")
+  brandDescription String   @default("Lembaga pelatihan proteksi radiasi terakreditasi BAPETEN, berkomitmen menghasilkan tenaga PPR profesional dan kompeten.") @map("brand_description") @db.Text
+
+  institutionName  String   @default("CV. Hikmat Proteksi ALARA") @map("institution_name")
+  ktunNumber       String   @default("No. 07998.722.1.040726") @map("ktun_number")
+  bankName         String   @default("Mandiri No. 166-00-0733926-0") @map("bank_name")
+  bankAccountName  String   @default("CV Hikmat Proteksi ALARA") @map("bank_account_name")
+
+  copyrightText    String   @default("CV. Hikmat Proteksi ALARA. Hak Cipta Dilindungi.") @map("copyright_text")
+  footerKtunText   String   @default("KTUN BAPETEN No. 07998.722.1.040726") @map("footer_ktun_text")
+
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@map("footer_settings")
+}
+
+// =====================
+// PENGATURAN SLIDE LAMAN DEPAN (LANDING SLIDES)
+// =====================
+model Slide {
+  id         Int      @id @default(autoincrement())
+  title      String?  @db.VarChar(255)
+  imageUrl   String   @map("image_url") @db.Text
+  linkUrl    String?  @map("link_url") @db.Text
+  isTampil   Int      @default(1) @map("is_tampil") // 1 = tampil, 2 = tidak tampil, default = 1
+  orderIndex Int      @default(1) @map("order_index")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("slides")
+}
+
+
