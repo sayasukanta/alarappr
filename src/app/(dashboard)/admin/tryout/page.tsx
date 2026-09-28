@@ -321,6 +321,25 @@ export default function AdminTryoutQuestionsPage() {
     }
   };
 
+  // Handle Toggle Status (Active / Inactive)
+  const handleToggleStatus = async (q: QuestionItem) => {
+    try {
+      const newStatus = !q.isActive;
+      const res = await fetch(`/api/admin/questions/${q.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: newStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal mengubah status soal");
+
+      toast.success(data.message || `Soal berhasil ${newStatus ? "diaktifkan" : "dinonaktifkan"}`);
+      fetchQuestions();
+    } catch (err: any) {
+      toast.error(err.message || "Gagal mengubah status soal");
+    }
+  };
+
   // Handle Delete
   const handleConfirmDelete = async () => {
     if (!deletingQuestion) return;
@@ -332,7 +351,14 @@ export default function AdminTryoutQuestionsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal menghapus soal");
 
-      toast.success(data.message || "Soal berhasil dihapus");
+      if (data.action === "deactivated") {
+        toast.info(data.message || "Soal telah dialihkan ke status Non-Aktif (diarsipkan).", {
+          duration: 6000,
+        });
+      } else {
+        toast.success(data.message || "Soal berhasil dihapus permanen.");
+      }
+
       setIsDeleteOpen(false);
       setDeletingQuestion(null);
       fetchQuestions();
@@ -743,15 +769,19 @@ export default function AdminTryoutQuestionsPage() {
 
                     {/* Status */}
                     <td className="py-3.5 px-3 text-center align-top">
-                      {q.isActive ? (
-                        <span className="inline-flex items-center text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                          Aktif
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-                          Non-Aktif
-                        </span>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStatus(q)}
+                        title={q.isActive ? "Klik untuk menonaktifkan (arsip) soal ini" : "Klik untuk mengaktifkan kembali soal ini"}
+                        className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-all cursor-pointer shadow-2xs hover:scale-105 ${
+                          q.isActive
+                            ? "text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100"
+                            : "text-slate-500 bg-slate-100 border-slate-200 hover:bg-slate-200"
+                        }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${q.isActive ? "bg-emerald-500" : "bg-slate-400"}`} />
+                        {q.isActive ? "Aktif" : "Non-Aktif"}
+                      </button>
                     </td>
 
                     {/* Aksi */}
@@ -1084,16 +1114,26 @@ export default function AdminTryoutQuestionsPage() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-4">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-start gap-3 mt-4">
                 <input
                   type="checkbox"
                   id="isActiveToggle"
                   checked={formData.isActive}
                   onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                  className="h-4 w-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                  className="h-4 w-4 mt-0.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
                 />
-                <label htmlFor="isActiveToggle" className="text-xs font-medium text-slate-700 cursor-pointer">
-                  Aktifkan soal ini untuk sesi ujian tryout peserta
+                <label htmlFor="isActiveToggle" className="text-xs text-slate-700 cursor-pointer select-none">
+                  <span className="font-bold text-slate-900 flex items-center gap-2">
+                    Status Soal: {formData.isActive ? "Aktif (Default)" : "Non-Aktif (Diarsipkan)"}
+                    <Badge variant="outline" className={`text-[10px] ${formData.isActive ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-slate-500 bg-slate-100 border-slate-200"}`}>
+                      {formData.isActive ? "Status Aktif (1)" : "Status Non-Aktif (0)"}
+                    </Badge>
+                  </span>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                    {formData.isActive
+                      ? "Soal aktif dapat dipilih untuk batch pelatihan dan dimasukkan dalam sesi ujian tryout peserta."
+                      : "Soal non-aktif diarsipkan dan tidak akan muncul dalam pemilihan batch pelatihan baru."}
+                  </span>
                 </label>
               </div>
             </div>
@@ -1307,30 +1347,51 @@ export default function AdminTryoutQuestionsPage() {
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base text-red-600">
+            <DialogTitle className="flex items-center gap-2 text-base text-red-600 font-bold">
               <AlertTriangle className="h-5 w-5" />
-              Hapus / Nonaktifkan Soal
+              Hapus / Nonaktifkan Butir Soal
             </DialogTitle>
             <DialogDescription>
-              Apakah Anda yakin ingin menghapus soal ini dari bank soal?
+              Tindakan ini akan memproses penghapusan atau penonaktifan butir soal secara aman.
             </DialogDescription>
           </DialogHeader>
 
           {deletingQuestion && (
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
-              <p className="font-semibold text-slate-800">
-                #{deletingQuestion.id} • {deletingQuestion.topic}
-              </p>
-              <p className="text-slate-600 line-clamp-2 italic">
-                &ldquo;{deletingQuestion.questionText}&rdquo;
-              </p>
-              <p className="text-[11px] text-slate-400 pt-1">
-                Catatan: Jika soal ini pernah dikerjakan oleh peserta dalam riwayat tryout, sistem akan otomatis mengarsipkannya (non-aktif) guna menjaga integritas riwayat nilai peserta.
-              </p>
+            <div className="space-y-3 py-1">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800">
+                    ID #{deletingQuestion.id} • {deletingQuestion.topic}
+                  </span>
+                  <Badge variant="outline" className={`text-[10px] ${
+                    deletingQuestion.isActive ? "text-emerald-700 bg-emerald-50 border-emerald-200" : "text-slate-500 bg-slate-100 border-slate-200"
+                  }`}>
+                    {deletingQuestion.isActive ? "Status: Aktif" : "Status: Non-Aktif"}
+                  </Badge>
+                </div>
+                <p className="text-slate-600 line-clamp-2 italic pt-0.5">
+                  &ldquo;{deletingQuestion.questionText}&rdquo;
+                </p>
+              </div>
+
+              <div className="p-3 bg-amber-50/90 border border-amber-200 rounded-xl text-xs space-y-1.5 text-amber-900">
+                <p className="font-bold flex items-center gap-1.5 text-amber-950">
+                  <Info className="h-4 w-4 text-amber-600 shrink-0" />
+                  Aturan Keamanan Data Pelatihan:
+                </p>
+                <ul className="space-y-1 text-[11px] list-disc list-inside text-amber-800 leading-relaxed">
+                  <li>
+                    <strong className="text-amber-950">Belum terkait batch:</strong> Soal akan <strong>dihapus permanen</strong> dari basis data.
+                  </li>
+                  <li>
+                    <strong className="text-amber-950">Sudah terkait/digunakan batch:</strong> Soal <strong>tidak akan dihapus permanen</strong>, melainkan otomatis dialihkan menjadi <strong>Non-Aktif (diarsipkan)</strong> demi menjaga integritas data penugasan batch dan riwayat nilai peserta.
+                  </li>
+                </ul>
+              </div>
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
               Batal
             </Button>
@@ -1339,7 +1400,7 @@ export default function AdminTryoutQuestionsPage() {
               disabled={submitting}
               onClick={handleConfirmDelete}
             >
-              {submitting ? "Memproses..." : "Ya, Hapus Soal"}
+              {submitting ? "Memproses..." : "Ya, Lanjutkan"}
             </Button>
           </DialogFooter>
         </DialogContent>
