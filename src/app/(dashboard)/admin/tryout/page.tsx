@@ -24,6 +24,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  Tag,
+  FolderPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,9 +41,20 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
+interface CategoryItem {
+  id: number;
+  code: string;
+  name: string;
+  description?: string | null;
+  orderIndex: number;
+  isActive: boolean;
+  _count?: { questions: number; trainings: number };
+}
+
 interface QuestionItem {
   id: number;
-  category: "PPR_ANALISIS" | "PPR_BAGASI" | "PKR_PEKERJA";
+  category: string;
+  categories?: { category: { id: number; code: string; name: string } }[];
   trainingId?: number | null;
   training?: { id: number; title: string } | null;
   topic: string;
@@ -63,20 +76,17 @@ interface QuestionMetrics {
   total: number;
   active: number;
   inactive: number;
-  byCategory: {
-    PPR_ANALISIS: number;
-    PPR_BAGASI: number;
-    PKR_PEKERJA: number;
-  };
+  byCategory: Record<string, number>;
 }
 
 export default function AdminTryoutQuestionsPage() {
   const [questions, setQuestions] = useState<QuestionItem[]>([]);
+  const [masterCategories, setMasterCategories] = useState<CategoryItem[]>([]);
   const [metrics, setMetrics] = useState<QuestionMetrics>({
     total: 0,
     active: 0,
     inactive: 0,
-    byCategory: { PPR_ANALISIS: 0, PPR_BAGASI: 0, PKR_PEKERJA: 0 },
+    byCategory: {},
   });
   const [loading, setLoading] = useState(true);
 
@@ -98,9 +108,16 @@ export default function AdminTryoutQuestionsPage() {
   const [deletingQuestion, setDeletingQuestion] = useState<QuestionItem | null>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
 
+  // Category Management Modal
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [newCatCode, setNewCatCode] = useState("");
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatDesc, setNewCatDesc] = useState("");
+  const [savingCategory, setSavingCategory] = useState(false);
+
   // Form State
   const [formData, setFormData] = useState({
-    category: "PPR_ANALISIS" as "PPR_ANALISIS" | "PPR_BAGASI" | "PKR_PEKERJA",
+    categoryIds: [] as number[],
     topic: "",
     difficulty: 1,
     questionText: "",
@@ -124,6 +141,23 @@ export default function AdminTryoutQuestionsPage() {
     errors?: string[];
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch Master Categories
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/categories");
+      if (res.ok) {
+        const data = await res.json();
+        setMasterCategories(data || []);
+      }
+    } catch (err) {
+      console.error("Gagal memuat master kategori:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   // Fetch Questions
   const fetchQuestions = useCallback(async () => {
@@ -160,8 +194,17 @@ export default function AdminTryoutQuestionsPage() {
   // Open Form for Create
   const handleOpenCreate = () => {
     setEditingQuestion(null);
+    let initialCatIds: number[] = [];
+    if (categoryFilter !== "ALL") {
+      const match = masterCategories.find((c) => c.code === categoryFilter);
+      if (match) initialCatIds = [match.id];
+    } else if (masterCategories.length > 0) {
+      // Default to first category
+      initialCatIds = [masterCategories[0].id];
+    }
+
     setFormData({
-      category: categoryFilter !== "ALL" ? (categoryFilter as any) : "PPR_ANALISIS",
+      categoryIds: initialCatIds,
       topic: "",
       difficulty: 1,
       questionText: "",
@@ -180,8 +223,16 @@ export default function AdminTryoutQuestionsPage() {
   // Open Form for Edit
   const handleOpenEdit = (q: QuestionItem) => {
     setEditingQuestion(q);
+    let catIds: number[] = [];
+    if (q.categories && q.categories.length > 0) {
+      catIds = q.categories.map((c) => c.category.id);
+    } else {
+      const match = masterCategories.find((c) => c.code === q.category);
+      if (match) catIds = [match.id];
+    }
+
     setFormData({
-      category: q.category,
+      categoryIds: catIds,
       topic: q.topic,
       difficulty: q.difficulty,
       questionText: q.questionText,
@@ -200,6 +251,9 @@ export default function AdminTryoutQuestionsPage() {
   // Submit Form (Create / Update)
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.categoryIds.length === 0) {
+      return toast.error("Pilih minimal satu kategori pelatihan untuk soal ini");
+    }
     if (!formData.topic.trim()) return toast.error("Topik soal wajib diisi");
     if (!formData.questionText.trim()) return toast.error("Teks pertanyaan soal wajib diisi");
     if (!formData.optionA.trim() || !formData.optionB.trim() || !formData.optionC.trim() || !formData.optionD.trim()) {
@@ -229,6 +283,41 @@ export default function AdminTryoutQuestionsPage() {
       toast.error(err.message || "Gagal memproses data");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  // Handle Save New Category
+  const handleSaveCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCatCode.trim() || !newCatName.trim()) {
+      return toast.error("Kode dan Nama kategori wajib diisi");
+    }
+
+    try {
+      setSavingCategory(true);
+      const res = await fetch("/api/admin/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: newCatCode.trim(),
+          name: newCatName.trim(),
+          description: newCatDesc.trim() || null,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal menambah kategori");
+
+      toast.success(`Kategori "${data.name}" berhasil ditambahkan!`);
+      setNewCatCode("");
+      setNewCatName("");
+      setNewCatDesc("");
+      fetchCategories();
+      fetchQuestions();
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menyimpan kategori");
+    } finally {
+      setSavingCategory(false);
     }
   };
 
@@ -300,16 +389,40 @@ export default function AdminTryoutQuestionsPage() {
 
   // Category labels & styling helper
   const getCategoryBadge = (cat: string) => {
+    const found = masterCategories.find((c) => c.code === cat);
+    const label = found ? found.name : cat.replace(/_/g, " ");
     switch (cat) {
       case "PPR_ANALISIS":
-        return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none font-medium">PPR Analisis</Badge>;
+        return <Badge key={cat} className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none font-medium text-[11px]">{label}</Badge>;
       case "PPR_BAGASI":
-        return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 border-none font-medium">PPR Bagasi</Badge>;
+        return <Badge key={cat} className="bg-amber-100 text-amber-800 hover:bg-amber-200 border-none font-medium text-[11px]">{label}</Badge>;
       case "PKR_PEKERJA":
-        return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-none font-medium">Pekerja Radiasi</Badge>;
+        return <Badge key={cat} className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-none font-medium text-[11px]">{label}</Badge>;
+      case "PPR_PENYEGARAN":
+        return <Badge key={cat} className="bg-purple-100 text-purple-800 hover:bg-purple-200 border-none font-medium text-[11px]">{label}</Badge>;
+      case "PPR_EKSPOR_IMPOR":
+        return <Badge key={cat} className="bg-cyan-100 text-cyan-800 hover:bg-cyan-200 border-none font-medium text-[11px]">{label}</Badge>;
       default:
-        return <Badge variant="outline">{cat}</Badge>;
+        return <Badge key={cat} variant="outline" className="text-slate-700 border-slate-300 text-[11px] bg-slate-50">{label}</Badge>;
     }
+  };
+
+  const getQuestionBadges = (q: QuestionItem) => {
+    if (q.categories && q.categories.length > 0) {
+      if (masterCategories.length > 0 && q.categories.length >= masterCategories.length) {
+        return (
+          <Badge className="bg-indigo-100 text-indigo-800 hover:bg-indigo-200 border-none font-medium text-[11px]">
+            Semua Kategori ({q.categories.length})
+          </Badge>
+        );
+      }
+      return (
+        <div className="flex flex-wrap gap-1">
+          {q.categories.map((c) => getCategoryBadge(c.category.code))}
+        </div>
+      );
+    }
+    return getCategoryBadge(q.category);
   };
 
   const getDifficultyBadge = (level: number) => {
@@ -347,6 +460,17 @@ export default function AdminTryoutQuestionsPage() {
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Kelola Kategori Master */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="text-slate-700 border-slate-200 hover:bg-slate-50 shadow-none text-xs"
+          >
+            <FolderPlus className="h-3.5 w-3.5 mr-1.5 text-purple-600" />
+            Kelola Kategori
+          </Button>
+
           {/* Unduh Template XLSX */}
           <Button
             variant="outline"
@@ -414,38 +538,20 @@ export default function AdminTryoutQuestionsPage() {
           </div>
         </Card>
 
-        <Card className="p-4 bg-white border-slate-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">PPR Analisis</span>
-            <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600"><BookOpen className="h-4 w-4" /></span>
-          </div>
-          <div className="mt-3">
-            <span className="text-2xl font-bold text-blue-700">{metrics.byCategory.PPR_ANALISIS}</span>
-            <p className="text-[11px] text-slate-400 mt-0.5">Soal Kompetensi</p>
-          </div>
-        </Card>
-
-        <Card className="p-4 bg-white border-slate-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-amber-600 uppercase tracking-wider">PPR Bagasi</span>
-            <span className="p-1.5 rounded-lg bg-amber-50 text-amber-600"><Sparkles className="h-4 w-4" /></span>
-          </div>
-          <div className="mt-3">
-            <span className="text-2xl font-bold text-amber-700">{metrics.byCategory.PPR_BAGASI}</span>
-            <p className="text-[11px] text-slate-400 mt-0.5">Soal Sinar-X Bagasi</p>
-          </div>
-        </Card>
-
-        <Card className="p-4 bg-white border-slate-200 shadow-sm flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Pekerja Radiasi</span>
-            <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600"><CheckCircle2 className="h-4 w-4" /></span>
-          </div>
-          <div className="mt-3">
-            <span className="text-2xl font-bold text-emerald-700">{metrics.byCategory.PKR_PEKERJA}</span>
-            <p className="text-[11px] text-slate-400 mt-0.5">Soal Keselamatan PKR</p>
-          </div>
-        </Card>
+        {masterCategories.slice(0, 3).map((cat) => (
+          <Card key={cat.id} className="p-4 bg-white border-slate-200 shadow-sm flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider truncate max-w-[120px]" title={cat.name}>
+                {cat.name}
+              </span>
+              <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600"><BookOpen className="h-4 w-4" /></span>
+            </div>
+            <div className="mt-3">
+              <span className="text-2xl font-bold text-slate-900">{metrics.byCategory[cat.code] || 0}</span>
+              <p className="text-[11px] text-slate-400 mt-0.5">Soal Terkait</p>
+            </div>
+          </Card>
+        ))}
 
         <Card className="p-4 bg-white border-slate-200 shadow-sm col-span-2 md:col-span-1 flex flex-col justify-between">
           <div className="flex items-center justify-between">
@@ -456,7 +562,7 @@ export default function AdminTryoutQuestionsPage() {
             <span className="text-2xl font-bold text-indigo-700">
               {metrics.total > 0 ? Math.round((metrics.active / metrics.total) * 100) : 0}%
             </span>
-            <p className="text-[11px] text-slate-400 mt-0.5">Siap diujikan ke peserta</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">{metrics.active} dari {metrics.total} siap uji</p>
           </div>
         </Card>
       </div>
@@ -486,12 +592,14 @@ export default function AdminTryoutQuestionsPage() {
               setPage(1);
             }}
             aria-label="Filter Berdasarkan Kategori"
-            className="w-full md:w-44 px-3 py-2 text-xs md:text-sm bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full md:w-56 px-3 py-2 text-xs md:text-sm bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="ALL">Semua Kategori</option>
-            <option value="PPR_ANALISIS">PPR Analisis</option>
-            <option value="PPR_BAGASI">PPR Bagasi</option>
-            <option value="PKR_PEKERJA">Pekerja Radiasi</option>
+            <option value="ALL">Semua Kategori {masterCategories.length > 0 ? `(${masterCategories.length})` : ""}</option>
+            {masterCategories.map((c) => (
+              <option key={c.id} value={c.code}>
+                {c.name} {metrics.byCategory[c.code] !== undefined ? `(${metrics.byCategory[c.code]})` : ""}
+              </option>
+            ))}
           </select>
 
           {/* Difficulty Filter */}
@@ -578,8 +686,8 @@ export default function AdminTryoutQuestionsPage() {
 
                     {/* Kategori & Topik */}
                     <td className="py-3.5 px-4 align-top">
-                      <div className="space-y-1">
-                        <div>{getCategoryBadge(q.category)}</div>
+                      <div className="space-y-1.5">
+                        <div>{getQuestionBadges(q)}</div>
                         <p className="font-semibold text-slate-800 text-xs">{q.topic}</p>
                         {q.training && (
                           <span className="text-[10px] text-slate-400 block truncate max-w-[150px]">
@@ -747,23 +855,113 @@ export default function AdminTryoutQuestionsPage() {
           </DialogHeader>
 
           <form onSubmit={handleSubmitForm} className="space-y-4 py-2">
-            {/* Row 1: Kategori, Topik, Kesulitan */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
-                  Kategori Pelatihan <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value as any })}
-                  className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="PPR_ANALISIS">PPR Analisis</option>
-                  <option value="PPR_BAGASI">PPR Bagasi</option>
-                  <option value="PKR_PEKERJA">Pekerja Radiasi</option>
-                </select>
+            {/* Multi-category selection */}
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Tag className="h-3.5 w-3.5 text-blue-600" />
+                    Kategori Pelatihan yang Menggunakan Soal Ini <span className="text-red-500">*</span>
+                  </label>
+                  <p className="text-[11px] text-slate-500">
+                    Pilih satu atau lebih kategori (soal umum seperti Fisika Radiasi & ALARA dapat dicentang ke banyak kategori sekaligus tanpa duplikasi).
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] px-2 text-blue-700 bg-white hover:bg-blue-50 border-slate-200"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        categoryIds: masterCategories.map((c) => c.id),
+                      });
+                    }}
+                  >
+                    Pilih Semua
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] px-2 text-amber-700 bg-white hover:bg-amber-50 border-slate-200"
+                    onClick={() => {
+                      const pprOnly = masterCategories
+                        .filter((c) => c.code.startsWith("PPR_"))
+                        .map((c) => c.id);
+                      setFormData({
+                        ...formData,
+                        categoryIds: pprOnly,
+                      });
+                    }}
+                  >
+                    PPR Saja
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-[11px] px-2 text-slate-500 hover:text-slate-800"
+                    onClick={() => {
+                      setFormData({
+                        ...formData,
+                        categoryIds: [],
+                      });
+                    }}
+                  >
+                    Reset
+                  </Button>
+                </div>
               </div>
 
+              {/* Checkbox grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1 max-h-48 overflow-y-auto pr-1">
+                {masterCategories.map((cat) => {
+                  const isChecked = formData.categoryIds.includes(cat.id);
+                  return (
+                    <label
+                      key={cat.id}
+                      className={`flex items-start gap-2.5 p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                        isChecked
+                          ? "bg-blue-50/80 border-blue-300 text-blue-900 font-medium shadow-xs"
+                          : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          let nextIds = [...formData.categoryIds];
+                          if (checked) {
+                            if (!nextIds.includes(cat.id)) nextIds.push(cat.id);
+                          } else {
+                            nextIds = nextIds.filter((id) => id !== cat.id);
+                          }
+                          setFormData({ ...formData, categoryIds: nextIds });
+                        }}
+                        className="mt-0.5 h-4 w-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 shrink-0"
+                      />
+                      <div className="min-w-0">
+                        <span className="block leading-tight truncate font-semibold">{cat.name}</span>
+                        <span className="text-[10px] text-slate-400 block font-normal">{cat.code}</span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+              {formData.categoryIds.length === 0 && (
+                <p className="text-[11px] text-red-600 font-medium flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                  Harap centang minimal 1 kategori pelatihan.
+                </p>
+              )}
+            </div>
+
+            {/* Row: Topik & Kesulitan */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-slate-700 block mb-1">
                   Topik / Materi <span className="text-red-500">*</span>
@@ -932,8 +1130,8 @@ export default function AdminTryoutQuestionsPage() {
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <div className="flex items-center gap-2 mb-1">
-              {previewQuestion && getCategoryBadge(previewQuestion.category)}
+            <div className="flex flex-wrap items-center gap-1.5 mb-1">
+              {previewQuestion && getQuestionBadges(previewQuestion)}
               {previewQuestion && getDifficultyBadge(previewQuestion.difficulty)}
             </div>
             <DialogTitle className="text-base font-bold text-slate-900">
@@ -1121,7 +1319,7 @@ export default function AdminTryoutQuestionsPage() {
           {deletingQuestion && (
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1">
               <p className="font-semibold text-slate-800">
-                #{deletingQuestion.id} • {deletingQuestion.topic} ({deletingQuestion.category})
+                #{deletingQuestion.id} • {deletingQuestion.topic}
               </p>
               <p className="text-slate-600 line-clamp-2 italic">
                 &ldquo;{deletingQuestion.questionText}&rdquo;
@@ -1142,6 +1340,135 @@ export default function AdminTryoutQuestionsPage() {
               onClick={handleConfirmDelete}
             >
               {submitting ? "Memproses..." : "Ya, Hapus Soal"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      {/* MODAL KELOLA KATEGORI MASTER                                           */}
+      {/* ═══════════════════════════════════════════════════════════════════════ */}
+      <Dialog open={isCategoryModalOpen} onOpenChange={setIsCategoryModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
+              <FolderPlus className="h-5 w-5 text-purple-600" />
+              Kelola Master Kategori Pelatihan & Ujian
+            </DialogTitle>
+            <DialogDescription>
+              Daftar kategori acuan untuk jenis pelatihan dan pembagian bank soal kompetensi PPR / PKR.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-2">
+            {/* Form Tambah Kategori Baru */}
+            <form onSubmit={handleSaveCategory} className="p-4 bg-purple-50/60 border border-purple-200 rounded-xl space-y-3">
+              <span className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                <Plus className="h-3.5 w-3.5 text-purple-600" />
+                Tambah Kategori Pelatihan Baru
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                    Kode Kategori (UPPERCASE) <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    placeholder="cth: PPR_EKSPOR_IMPOR"
+                    value={newCatCode}
+                    onChange={(e) => setNewCatCode(e.target.value.toUpperCase().replace(/\s+/g, "_"))}
+                    className="text-xs bg-white uppercase font-mono"
+                    required
+                  />
+                  <span className="text-[10px] text-slate-400">Contoh: PPR_MEDIK_1, PPR_INDUSTRI_2</span>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                    Nama Kategori Resmi <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    placeholder="cth: PPR Medik Tingkat 1"
+                    value={newCatName}
+                    onChange={(e) => setNewCatName(e.target.value)}
+                    className="text-xs bg-white"
+                    required
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">
+                    Deskripsi / Ruang Lingkup (Opsional)
+                  </label>
+                  <Input
+                    placeholder="Deskripsi singkat ruang lingkup pelatihan / penggunaan sumber radiasi"
+                    value={newCatDesc}
+                    onChange={(e) => setNewCatDesc(e.target.value)}
+                    className="text-xs bg-white"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end pt-1">
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={savingCategory}
+                  className="bg-purple-600 hover:bg-purple-700 text-white text-xs h-8"
+                >
+                  {savingCategory ? "Menyimpan..." : "Simpan Kategori Baru"}
+                </Button>
+              </div>
+            </form>
+
+            {/* List Kategori yang Ada */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800">
+                  Daftar Kategori Terdaftar ({masterCategories.length})
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Digunakan di Modul Pelatihan & Bank Soal
+                </span>
+              </div>
+              <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                {masterCategories.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-400">
+                    Belum ada kategori yang terdaftar.
+                  </div>
+                ) : (
+                  masterCategories.map((c, i) => (
+                    <div key={c.id} className="p-3 bg-white hover:bg-slate-50 flex items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-slate-400 font-mono text-[11px] w-6 shrink-0">{i + 1}.</span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900 truncate">{c.name}</span>
+                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                              {c.code}
+                            </span>
+                          </div>
+                          {c.description && (
+                            <p className="text-[11px] text-slate-500 truncate mt-0.5">{c.description}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="shrink-0 flex items-center gap-2">
+                        {c._count && (
+                          <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                            {c._count.questions} soal • {c._count.trainings} pelatihan
+                          </span>
+                        )}
+                        <Badge variant="outline" className="text-emerald-700 bg-emerald-50 border-emerald-200 text-[10px]">
+                          Aktif
+                        </Badge>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCategoryModalOpen(false)}>
+              Selesai
             </Button>
           </DialogFooter>
         </DialogContent>

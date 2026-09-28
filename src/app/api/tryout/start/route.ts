@@ -180,7 +180,21 @@ export async function POST(request: NextRequest) {
     // Fallback or AUTOMATIC mode: random sampling from active questions
     if (selectedQuestions.length === 0) {
       const allQuestions = await prisma.question.findMany({
-        where: { category, isActive: true },
+        where: {
+          isActive: true,
+          OR: [
+            {
+              categories: {
+                some: {
+                  category: {
+                    code: category,
+                  },
+                },
+              },
+            },
+            { category },
+          ],
+        },
         select: {
           id: true,
           topic: true,

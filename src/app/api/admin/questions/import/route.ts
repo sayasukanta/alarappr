@@ -50,6 +50,10 @@ export async function POST(req: Request) {
       );
     }
 
+    const masterCategories = await prisma.category.findMany({
+      where: { isActive: true },
+    });
+
     const validQuestions: any[] = [];
     const errors: string[] = [];
 
@@ -87,24 +91,41 @@ export async function POST(req: Request) {
         return;
       }
 
-      // 1. Validate Category
-      let category: TrainingCategory | null = null;
-      const upperCat = rawCat.toUpperCase();
-      if (upperCat.includes("ANALIS")) {
-        category = TrainingCategory.PPR_ANALISIS;
-      } else if (upperCat.includes("BAGASI")) {
-        category = TrainingCategory.PPR_BAGASI;
-      } else if (upperCat.includes("PEKERJA") || upperCat.includes("PKR")) {
-        category = TrainingCategory.PKR_PEKERJA;
-      } else if (upperCat === "PPR_ANALISIS") {
-        category = TrainingCategory.PPR_ANALISIS;
-      } else if (upperCat === "PPR_BAGASI") {
-        category = TrainingCategory.PPR_BAGASI;
-      } else if (upperCat === "PKR_PEKERJA") {
-        category = TrainingCategory.PKR_PEKERJA;
+      // 1. Resolve Multi-Categories
+      const upperCat = rawCat.toUpperCase().trim();
+      let matchedCategories: typeof masterCategories = [];
+
+      if (upperCat === "SEMUA" || upperCat === "ALL" || upperCat === "UMUM" || upperCat === "GENERAL") {
+        matchedCategories = [...masterCategories];
       } else {
+        const parts = upperCat.split(/[,;|]+/).map((s) => s.trim()).filter(Boolean);
+        for (const part of parts) {
+          const found = masterCategories.filter((mc) => {
+            const code = mc.code.toUpperCase();
+            const name = mc.name.toUpperCase();
+            return (
+              code === part ||
+              name === part ||
+              code.includes(part) ||
+              part.includes(code) ||
+              (part.includes("ANALIS") && code.includes("ANALISIS")) ||
+              (part.includes("BAGASI") && code.includes("BAGASI")) ||
+              ((part.includes("PEKERJA") || part.includes("PKR")) && code.includes("PEKERJA")) ||
+              (part.includes("PENYEGARAN") && code.includes("PENYEGARAN")) ||
+              (part.includes("EKSPOR") && code.includes("EKSPOR"))
+            );
+          });
+          for (const f of found) {
+            if (!matchedCategories.some((mc) => mc.id === f.id)) {
+              matchedCategories.push(f);
+            }
+          }
+        }
+      }
+
+      if (matchedCategories.length === 0) {
         errors.push(
-          `Baris ${rowNum}: Kategori "${rawCat}" tidak valid. Harus salah satu dari PPR_ANALISIS, PPR_BAGASI, atau PKR_PEKERJA.`
+          `Baris ${rowNum}: Kategori "${rawCat}" tidak dikenali dalam master kategori.`
         );
         return;
       }
@@ -142,19 +163,30 @@ export async function POST(req: Request) {
         difficulty = 2;
       }
 
+      let primaryCat: TrainingCategory = TrainingCategory.PPR_ANALISIS;
+      const firstCode = matchedCategories[0].code;
+      if (Object.values(TrainingCategory).includes(firstCode as TrainingCategory)) {
+        primaryCat = firstCode as TrainingCategory;
+      }
+
       validQuestions.push({
-        category,
-        topic,
-        difficulty,
-        questionText,
-        optionA,
-        optionB,
-        optionC,
-        optionD,
-        optionE: optionE || null,
-        correctAnswer: firstLetterAns,
-        explanation: explanation || null,
-        isActive: true,
+        data: {
+          category: primaryCat,
+          topic,
+          difficulty,
+          questionText,
+          optionA,
+          optionB,
+          optionC,
+          optionD,
+          optionE: optionE || null,
+          correctAnswer: firstLetterAns,
+          explanation: explanation || null,
+          isActive: true,
+          categories: {
+            create: matchedCategories.map((c) => ({ categoryId: c.id })),
+          },
+        },
       });
     });
 
@@ -168,17 +200,17 @@ export async function POST(req: Request) {
       );
     }
 
-    // Insert into database
-    await prisma.question.createMany({
-      data: validQuestions,
-    });
+    // Insert into database with multi-category relations
+    for (const q of validQuestions) {
+      await prisma.question.create(q);
+    }
 
     return NextResponse.json({
       success: true,
-      message: `Berhasil mengimpor ${validQuestions.length} soal ke bank soal.`,
+      message: `Berhasil mengimpor ${validQuestions.length} soal ke bank soal dengan kategori terhubung.`,
       importedCount: validQuestions.length,
       errorsCount: errors.length,
-      errors: errors.slice(0, 15), // send first 15 errors if any
+      errors: errors.slice(0, 15),
     });
   } catch (error) {
     console.error("Error importing questions:", error);

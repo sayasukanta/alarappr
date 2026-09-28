@@ -127,6 +127,7 @@ model User {
 model Training {
   id             Int                      @id @default(autoincrement())
   category       TrainingCategory
+  categoryId     Int?                     @map("category_id")
   title          String
   titleEn        String?                  @map("title_en")
   certHeaderId   String?                  @map("cert_header_id")
@@ -139,6 +140,7 @@ model Training {
   createdAt      DateTime                 @default(now()) @map("created_at")
 
   // Relations
+  categoryRef     Category?                @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   batches         TrainingBatch[]
   competencyUnits TrainingCompetencyUnit[]
   questions       Question[]
@@ -495,6 +497,7 @@ model Question {
 
   // Relations
   training        Training?             @relation(fields: [trainingId], references: [id], onDelete: SetNull)
+  categories      QuestionCategory[]
   tryoutAnswers   TryoutAnswer[]
   batchSelections BatchTryoutQuestion[]
 
@@ -637,6 +640,43 @@ model Slide {
   updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("slides")
+}
+
+// =====================
+// MASTER KATEGORI PELATIHAN (DYNAMIC REFERENCE)
+// =====================
+model Category {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique // e.g. "PPR_ANALISIS", "PPR_BAGASI", "PKR_PEKERJA", "PPR_PENYEGARAN", "PPR_EKSPOR_IMPOR"
+  name        String   // e.g. "PPR Bidang Analisis"
+  description String?  @db.Text
+  orderIndex  Int      @default(1) @map("order_index")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  trainings   Training[]
+  questions   QuestionCategory[]
+
+  @@map("training_categories")
+}
+
+// =====================
+// QUESTION CATEGORIES (MANY-TO-MANY SOAL KE KATEGORI)
+// =====================
+model QuestionCategory {
+  id         Int      @id @default(autoincrement())
+  questionId Int      @map("question_id")
+  categoryId Int      @map("category_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([questionId, categoryId])
+  @@index([questionId])
+  @@index([categoryId])
+  @@map("question_categories")
 }
 
 

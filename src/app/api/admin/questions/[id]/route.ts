@@ -23,6 +23,11 @@ export async function GET(
       where: { id: questionId },
       include: {
         training: { select: { id: true, title: true } },
+        categories: {
+          include: {
+            category: { select: { id: true, code: true, name: true } },
+          },
+        },
         _count: { select: { tryoutAnswers: true } },
       },
     });
@@ -57,6 +62,8 @@ export async function PUT(
     const body = await req.json();
     const {
       category,
+      categoryIds,
+      categoryCodes,
       trainingId,
       topic,
       difficulty,
@@ -101,9 +108,37 @@ export async function PUT(
     if (explanation !== undefined) updateData.explanation = explanation ? String(explanation).trim() : null;
     if (isActive !== undefined) updateData.isActive = Boolean(isActive);
 
+    // Sync multi-category relations
+    if (Array.isArray(categoryIds)) {
+      const ids = categoryIds.map((id: any) => parseInt(String(id), 10)).filter((id: number) => !isNaN(id));
+      await prisma.questionCategory.deleteMany({ where: { questionId } });
+      if (ids.length > 0) {
+        await prisma.questionCategory.createMany({
+          data: ids.map((cid: number) => ({ questionId, categoryId: cid })),
+        });
+        const firstCat = await prisma.category.findUnique({ where: { id: ids[0] } });
+        if (firstCat && Object.values(TrainingCategory).includes(firstCat.code as TrainingCategory)) {
+          updateData.category = firstCat.code as TrainingCategory;
+        }
+      }
+    } else if (Array.isArray(categoryCodes) && categoryCodes.length > 0) {
+      const found = await prisma.category.findMany({ where: { code: { in: categoryCodes } } });
+      await prisma.questionCategory.deleteMany({ where: { questionId } });
+      if (found.length > 0) {
+        await prisma.questionCategory.createMany({
+          data: found.map((f) => ({ questionId, categoryId: f.id })),
+        });
+      }
+    }
+
     const question = await prisma.question.update({
       where: { id: questionId },
       data: updateData,
+      include: {
+        categories: {
+          include: { category: true },
+        },
+      },
     });
 
     return NextResponse.json({ question, message: "Soal berhasil diperbarui" });

@@ -33,9 +33,18 @@ export async function PUT(
       return NextResponse.json({ error: "Judul/Nama program pelatihan wajib diisi" }, { status: 400 });
     }
 
-    if (!category || !["PPR_ANALISIS", "PPR_BAGASI", "PKR_PEKERJA", "PPR_PENYEGARAN"].includes(category)) {
+    // Check if category is valid either from master category or legacy enum
+    const foundCategory = await prisma.category.findFirst({
+      where: { code: category },
+    });
+
+    const isEnumCategory = ["PPR_ANALISIS", "PPR_BAGASI", "PKR_PEKERJA", "PPR_PENYEGARAN"].includes(category);
+    if (!foundCategory && !isEnumCategory) {
       return NextResponse.json({ error: "Kategori pelatihan tidak valid" }, { status: 400 });
     }
+
+    const enumVal = isEnumCategory ? (category as any) : "PPR_ANALISIS";
+    const catId = foundCategory ? foundCategory.id : existing.categoryId;
 
     const parsedPrice = parseFloat(price);
     if (isNaN(parsedPrice) || parsedPrice < 0) {
@@ -51,7 +60,8 @@ export async function PUT(
       where: { id: trainingId },
       data: {
         title: title.trim(),
-        category,
+        category: enumVal,
+        categoryId: catId,
         certBadge: certBadge !== undefined ? (certBadge?.trim() || null) : undefined,
         price: parsedPrice,
         durationDays: parsedDuration,

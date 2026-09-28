@@ -21,7 +21,10 @@ export async function GET(req: Request) {
     const where: any = {};
 
     if (categoryParam && categoryParam !== "ALL") {
-      where.category = categoryParam as TrainingCategory;
+      where.OR = [
+        { categories: { some: { category: { code: categoryParam } } } },
+        { category: categoryParam as any },
+      ];
     }
 
     if (difficultyParam && difficultyParam !== "ALL") {
@@ -36,21 +39,48 @@ export async function GET(req: Request) {
 
     if (searchParam && searchParam.trim().length > 0) {
       const q = searchParam.trim();
-      where.OR = [
+      const searchConditions = [
         { questionText: { contains: q } },
         { topic: { contains: q } },
         { explanation: { contains: q } },
       ];
+      if (where.OR) {
+        where.AND = [
+          { OR: where.OR },
+          { OR: searchConditions }
+        ];
+        delete where.OR;
+      } else {
+        where.OR = searchConditions;
+      }
     }
 
-    // Counts for dashboard metrics
-    const [total, activeCount, pprAnalisisCount, pprBagasiCount, pkrPekerjaCount] = await Promise.all([
+    // Dynamic counts by category from master categories
+    const masterCategories = await prisma.category.findMany({
+      where: { isActive: true },
+      orderBy: { orderIndex: "asc" },
+    });
+
+    const [total, activeCount] = await Promise.all([
       prisma.question.count(),
       prisma.question.count({ where: { isActive: true } }),
-      prisma.question.count({ where: { category: TrainingCategory.PPR_ANALISIS } }),
-      prisma.question.count({ where: { category: TrainingCategory.PPR_BAGASI } }),
-      prisma.question.count({ where: { category: TrainingCategory.PKR_PEKERJA } }),
     ]);
+
+    const byCategory: Record<string, number> = {};
+    await Promise.all(
+      masterCategories.map(async (cat) => {
+        const count = await prisma.question.count({
+          where: {
+            isActive: true,
+            OR: [
+              { categories: { some: { categoryId: cat.id } } },
+              { category: cat.code as any },
+            ],
+          },
+        });
+        byCategory[cat.code] = count;
+      })
+    );
 
     const filteredTotal = await prisma.question.count({ where });
 
@@ -58,6 +88,11 @@ export async function GET(req: Request) {
       where,
       include: {
         training: { select: { id: true, title: true } },
+        categories: {
+          include: {
+            category: { select: { id: true, code: true, name: true } },
+          },
+        },
       },
       orderBy: { id: "desc" },
       skip: limitParam === -1 ? 0 : (pageParam - 1) * limitParam,
@@ -76,11 +111,7 @@ export async function GET(req: Request) {
         total,
         active: activeCount,
         inactive: total - activeCount,
-        byCategory: {
-          PPR_ANALISIS: pprAnalisisCount,
-          PPR_BAGASI: pprBagasiCount,
-          PKR_PEKERJA: pkrPekerjaCount,
-        },
+        byCategory,
       },
     });
   } catch (error) {
@@ -99,6 +130,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const {
       category,
+      categoryIds,
+      categoryCodes,
       trainingId,
       topic,
       difficulty,
@@ -114,9 +147,34 @@ export async function POST(req: Request) {
       isActive,
     } = body;
 
-    if (!category || !topic || !questionText || !optionA || !optionB || !optionC || !optionD || !correctAnswer) {
+    // Resolve target category IDs
+    let resolvedCategoryIds: number[] = [];
+    if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+      resolvedCategoryIds = categoryIds.map((id: any) => parseInt(String(id), 10)).filter((id: number) => !isNaN(id));
+    } else if (Array.isArray(categoryCodes) && categoryCodes.length > 0) {
+      const found = await prisma.category.findMany({
+        where: { code: { in: categoryCodes } },
+        select: { id: true },
+      });
+      resolvedCategoryIds = found.map((f) => f.id);
+    } else if (category) {
+      const found = await prisma.category.findUnique({
+        where: { code: String(category) },
+        select: { id: true },
+      });
+      if (found) resolvedCategoryIds = [found.id];
+    }
+
+    if (resolvedCategoryIds.length === 0 && !category) {
       return NextResponse.json(
-        { error: "Mohon lengkapi field wajib: Kategori, Topik, Teks Soal, Opsi A-D, dan Kunci Jawaban." },
+        { error: "Mohon pilih minimal satu kategori pelatihan untuk soal ini." },
+        { status: 400 }
+      );
+    }
+
+    if (!topic || !questionText || !optionA || !optionB || !optionC || !optionD || !correctAnswer) {
+      return NextResponse.json(
+        { error: "Mohon lengkapi field wajib: Topik, Teks Soal, Opsi A-D, dan Kunci Jawaban." },
         { status: 400 }
       );
     }
@@ -130,9 +188,20 @@ export async function POST(req: Request) {
       );
     }
 
+    // Determine primary category for legacy enum column
+    let primaryCategory: TrainingCategory = TrainingCategory.PPR_ANALISIS;
+    if (category && Object.values(TrainingCategory).includes(category as TrainingCategory)) {
+      primaryCategory = category as TrainingCategory;
+    } else if (resolvedCategoryIds.length > 0) {
+      const firstCat = await prisma.category.findUnique({ where: { id: resolvedCategoryIds[0] } });
+      if (firstCat && Object.values(TrainingCategory).includes(firstCat.code as TrainingCategory)) {
+        primaryCategory = firstCat.code as TrainingCategory;
+      }
+    }
+
     const question = await prisma.question.create({
       data: {
-        category: category as TrainingCategory,
+        category: primaryCategory,
         trainingId: trainingId ? parseInt(String(trainingId), 10) : null,
         topic: String(topic).trim(),
         difficulty: difficulty ? parseInt(String(difficulty), 10) : 1,
@@ -146,6 +215,16 @@ export async function POST(req: Request) {
         correctAnswer: upperAnswer,
         explanation: explanation ? String(explanation).trim() : null,
         isActive: isActive !== false,
+        categories: {
+          create: resolvedCategoryIds.map((catId) => ({
+            categoryId: catId,
+          })),
+        },
+      },
+      include: {
+        categories: {
+          include: { category: true },
+        },
       },
     });
 

@@ -29,11 +29,22 @@ export async function GET(
       return NextResponse.json({ error: "Batch tidak ditemukan" }, { status: 404 });
     }
 
-    // Ambil seluruh soal aktif untuk kategori pelatihan ini
+    // Ambil seluruh soal aktif untuk kategori pelatihan ini (mendukung multi-kategori)
     const allQuestions = await prisma.question.findMany({
       where: {
-        category: batch.training.category,
         isActive: true,
+        OR: [
+          {
+            categories: {
+              some: {
+                category: {
+                  code: batch.training.category,
+                },
+              },
+            },
+          },
+          { category: batch.training.category },
+        ],
       },
       select: {
         id: true,

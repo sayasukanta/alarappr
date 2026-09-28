@@ -43,11 +43,18 @@ import { toast } from 'sonner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type TrainingCategory = 'PPR_ANALISIS' | 'PPR_BAGASI' | 'PKR_PEKERJA' | 'PPR_PENYEGARAN';
+type TrainingCategory = string;
+
+interface MasterCategoryItem {
+  id: number;
+  code: string;
+  name: string;
+}
 
 interface TrainingRecord {
   id: number;
-  category: TrainingCategory;
+  category: string;
+  categoryId?: number | null;
   title: string;
   certBadge?: string | null;
   price: number;
@@ -57,7 +64,7 @@ interface TrainingRecord {
   batchesCount: number;
 }
 
-const CATEGORY_MAP: Record<TrainingCategory, { label: string; badgeCls: string }> = {
+const CATEGORY_MAP: Record<string, { label: string; badgeCls: string }> = {
   PPR_ANALISIS: {
     label: 'PPR Analisis',
     badgeCls: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -74,6 +81,10 @@ const CATEGORY_MAP: Record<TrainingCategory, { label: string; badgeCls: string }
     label: 'PPR Penyegaran',
     badgeCls: 'bg-teal-100 text-teal-800 border-teal-200',
   },
+  PPR_EKSPOR_IMPOR: {
+    label: 'PPR Ekspor Impor',
+    badgeCls: 'bg-cyan-100 text-cyan-800 border-cyan-200',
+  },
 };
 
 function formatRupiah(amount: number) {
@@ -89,6 +100,7 @@ function formatRupiah(amount: number) {
 
 export default function JenisPelatihanPage() {
   const [trainings, setTrainings] = useState<TrainingRecord[]>([]);
+  const [masterCategories, setMasterCategories] = useState<MasterCategoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
@@ -110,7 +122,7 @@ export default function JenisPelatihanPage() {
 
   // Form fields
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<TrainingCategory>('PPR_ANALISIS');
+  const [category, setCategory] = useState<string>('PPR_ANALISIS');
   const [certBadge, setCertBadge] = useState('BAPETEN');
   const [price, setPrice] = useState('');
   const [durationDays, setDurationDays] = useState('3');
@@ -130,14 +142,27 @@ export default function JenisPelatihanPage() {
     }
   }, []);
 
+  const fetchCategories = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/categories');
+      if (res.ok) {
+        const json = await res.json();
+        setMasterCategories(json.categories || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
   useEffect(() => {
     fetchTrainings();
-  }, [fetchTrainings]);
+    fetchCategories();
+  }, [fetchTrainings, fetchCategories]);
 
   const handleOpenCreate = () => {
     setEditingTraining(null);
     setTitle('');
-    setCategory('PPR_ANALISIS');
+    setCategory(masterCategories.length > 0 ? masterCategories[0].code : 'PPR_ANALISIS');
     setCertBadge('BAPETEN');
     setPrice('');
     setDurationDays('3');
@@ -331,13 +356,26 @@ export default function JenisPelatihanPage() {
       {/* Filter & Search Bar */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex flex-wrap gap-1.5">
-          {[
-            { id: 'ALL', label: 'Semua Kategori' },
-            { id: 'PPR_ANALISIS', label: 'PPR Analisis' },
-            { id: 'PPR_BAGASI', label: 'PPR X-Ray Bagasi' },
-            { id: 'PKR_PEKERJA', label: 'PKR Pekerja' },
-            { id: 'PPR_PENYEGARAN', label: 'PPR Penyegaran' },
-          ].map((cat) => (
+          <button
+            onClick={() => setFilterCategory('ALL')}
+            className={cn(
+              'px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border',
+              filterCategory === 'ALL'
+                ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
+            )}
+          >
+            Semua Kategori
+          </button>
+          {(masterCategories.length > 0
+            ? masterCategories.map((c) => ({ id: c.code, label: c.name }))
+            : [
+                { id: 'PPR_ANALISIS', label: 'PPR Analisis' },
+                { id: 'PPR_BAGASI', label: 'PPR X-Ray Bagasi' },
+                { id: 'PKR_PEKERJA', label: 'PKR Pekerja' },
+                { id: 'PPR_PENYEGARAN', label: 'PPR Penyegaran' },
+              ]
+          ).map((cat) => (
             <button
               key={cat.id}
               onClick={() => setFilterCategory(cat.id)}
@@ -425,9 +463,10 @@ export default function JenisPelatihanPage() {
                   </tr>
                 ) : (
                   filteredTrainings.map((t) => {
+                    const catFound = masterCategories.find((c) => c.code === t.category);
                     const catMeta = CATEGORY_MAP[t.category] || {
-                      label: t.category,
-                      badgeCls: 'bg-gray-100 text-gray-700',
+                      label: catFound ? catFound.name : t.category,
+                      badgeCls: 'bg-slate-100 text-slate-800 border-slate-200',
                     };
                     return (
                       <tr key={t.id} className="hover:bg-gray-50/70 transition-colors">
@@ -564,10 +603,20 @@ export default function JenisPelatihanPage() {
                     <SelectValue placeholder="Pilih kategori" />
                   </SelectTrigger>
                   <SelectContent className="w-[var(--anchor-width)]">
-                    <SelectItem value="PPR_ANALISIS">PPR Analisis</SelectItem>
-                    <SelectItem value="PPR_BAGASI">PPR X-Ray Bagasi</SelectItem>
-                    <SelectItem value="PKR_PEKERJA">PKR Pekerja</SelectItem>
-                    <SelectItem value="PPR_PENYEGARAN">PPR Penyegaran</SelectItem>
+                    {masterCategories.length > 0 ? (
+                      masterCategories.map((c) => (
+                        <SelectItem key={c.id} value={c.code}>
+                          {c.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <>
+                        <SelectItem value="PPR_ANALISIS">PPR Analisis</SelectItem>
+                        <SelectItem value="PPR_BAGASI">PPR X-Ray Bagasi</SelectItem>
+                        <SelectItem value="PKR_PEKERJA">PKR Pekerja</SelectItem>
+                        <SelectItem value="PPR_PENYEGARAN">PPR Penyegaran</SelectItem>
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

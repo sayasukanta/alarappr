@@ -12,6 +12,7 @@ export async function GET() {
 
     const trainings = await prisma.training.findMany({
       include: {
+        categoryRef: true,
         _count: {
           select: { batches: true },
         },
@@ -21,7 +22,8 @@ export async function GET() {
 
     const formatted = trainings.map((t) => ({
       id: t.id,
-      category: t.category,
+      category: t.categoryRef?.code || t.category,
+      categoryId: t.categoryId,
       title: t.title,
       certBadge: t.certBadge || (t.category === "PKR_PEKERJA" ? "Internal" : "BAPETEN"),
       price: Number(t.price),
@@ -55,9 +57,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Judul/Nama program pelatihan wajib diisi" }, { status: 400 });
     }
 
-    if (!category || !["PPR_ANALISIS", "PPR_BAGASI", "PKR_PEKERJA", "PPR_PENYEGARAN"].includes(category)) {
+    // Check if category is valid either from master category or legacy enum
+    const foundCategory = await prisma.category.findFirst({
+      where: { code: category },
+    });
+
+    const isEnumCategory = ["PPR_ANALISIS", "PPR_BAGASI", "PKR_PEKERJA", "PPR_PENYEGARAN"].includes(category);
+    if (!foundCategory && !isEnumCategory) {
       return NextResponse.json({ error: "Kategori pelatihan tidak valid" }, { status: 400 });
     }
+
+    const enumVal = isEnumCategory ? (category as any) : "PPR_ANALISIS";
+    const catId = foundCategory ? foundCategory.id : null;
 
     const parsedPrice = parseFloat(price);
     if (isNaN(parsedPrice) || parsedPrice < 0) {
@@ -72,7 +83,8 @@ export async function POST(req: Request) {
     const newTraining = await prisma.training.create({
       data: {
         title: title.trim(),
-        category,
+        category: enumVal,
+        categoryId: catId,
         certBadge: certBadge?.trim() || (category === "PKR_PEKERJA" ? "Internal" : "BAPETEN"),
         price: parsedPrice,
         durationDays: parsedDuration,
