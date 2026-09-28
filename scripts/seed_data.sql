@@ -16,12 +16,7 @@ VALUES
 (1, 'PPR_ANALISIS', 'PPR Bidang Analisis', 'Pelatihan Calon Petugas Proteksi Radiasi bidang analisis dengan SRP (XRF, XRD, dll)', 1, 1, NOW(), NOW()),
 (2, 'PPR_BAGASI', 'PPR Pemindai Bagasi', 'Pelatihan Calon Petugas Proteksi Radiasi pemindai bagasi / barang (X-ray bandara/fasilitas keamanan)', 2, 1, NOW(), NOW()),
 (3, 'PKR_PEKERJA', 'PKR Pekerja Radiasi', 'Pelatihan Proteksi dan Keselamatan Radiasi untuk seluruh pekerja dan staf di medan radiasi', 3, 1, NOW(), NOW()),
-(4, 'PPR_PENYEGARAN', 'PPR Penyegaran', 'Penyegaran kompetensi PPR untuk syarat perpanjangan Surat Izin Bekerja (SIB) BAPETEN', 4, 1, NOW(), NOW()),
-(5, 'PPR_EKSPOR_IMPOR', 'PPR Ekspor Impor', 'Pelatihan Calon Petugas Proteksi Radiasi untuk instansi importir / distributor SRP', 5, 1, NOW(), NOW()),
-(6, 'PPR_INDUSTRI_1', 'PPR Industri Tingkat 1', 'Pelatihan Calon PPR Industri Tingkat 1 (Radiografi Industri & Iradiator)', 6, 1, NOW(), NOW()),
-(7, 'PPR_INDUSTRI_2', 'PPR Industri Tingkat 2', 'Pelatihan Calon PPR Industri Tingkat 2 (Gauging, Logging, dll)', 7, 1, NOW(), NOW()),
-(8, 'PPR_MEDIK_1', 'PPR Medik Tingkat 1', 'Pelatihan Calon PPR Medik Tingkat 1 (Radioterapi & Kedokteran Nuklir)', 8, 1, NOW(), NOW()),
-(9, 'PPR_MEDIK_2', 'PPR Medik Tingkat 2', 'Pelatihan Calon PPR Medik Tingkat 2 (Radiologi Diagnostik & Intervensional)', 9, 1, NOW(), NOW());
+(4, 'PPR_PENYEGARAN', 'PPR Penyegaran', 'Penyegaran kompetensi PPR untuk syarat perpanjangan Surat Izin Bekerja (SIB) BAPETEN', 4, 1, NOW(), NOW());
 
 -- 3. INSTRUCTORS
 INSERT INTO `instructors` (`id`, `user_id`, `bapeten_license_no`, `license_expiry_date`, `iaea_certification`, `specialization`, `bio_summary`, `status`, `created_at`, `updated_at`)

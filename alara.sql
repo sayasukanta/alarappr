@@ -527,10 +527,10 @@ ALTER TABLE `tryout_answers` ADD CONSTRAINT `tryout_answers_question_id_fkey` FO
 -- 1. USERS
 INSERT INTO `users` (`id`, `email`, `password_hash`, `full_name`, `nik`, `phone_number`, `role`, `created_at`, `updated_at`)
 VALUES
-(1, 'admin@alara.co.id', '$2b$10$.IM/Qyi96EfixzCoQNGS6.S0k5P3p6FbT0qfB5e28D5vDXPgfU35e', 'Admin ALARA', '3171010101010001', '08123456789', 'ADMIN', NOW(), NOW()),
-(2, 'instructor@alara.co.id', '$2b$10$jooRVCoXuM6mkDn.kh/I8uK.wEvVg8CJS7ynIW6ONOdSfRJrsdynK', 'Ir. H. Expert Proteksi, M.Si.', '3171010101010002', '08198765432', 'INSTRUCTOR', NOW(), NOW()),
-(3, 'peserta@alara.co.id', '$2b$10$eGfjWh9vQw1Ungf3Jepyfu/kYF2cU5CXL7rhn/NJinNXlApZ21O6q', 'Budi Santoso', '3172091238910001', '08112345678', 'PESERTA', NOW(), NOW()),
-(4, 'sponsor@alara.co.id', '$2b$10$jxsPpFszZxp1OCzylqY/pevVjsqs/CinRaLb0PYtxjZ/0xS.eL1ci', 'PT Medika Radiasi', '3171010101010004', '02112345678', 'SPONSOR', NOW(), NOW());
+(1, 'admin@alara.co.id', '$2b$10$k3CS2mKuBMk/jMuw9A9oNe38AkGcYCCoSllvUAYQnNYQ2PQTIq/z.', 'Admin ALARA', '3171010101010001', '08123456789', 'ADMIN', NOW(), NOW()),
+(2, 'instructor@alara.co.id', '$2b$10$SQo6Qqk0ZSKuPaUNbZ5C4Ow3DGkkbic9hFfG1KdA24qwTfvMqoW2q', 'Ir. H. Expert Proteksi, M.Si.', '3171010101010002', '08198765432', 'INSTRUCTOR', NOW(), NOW()),
+(3, 'peserta@alara.co.id', '$2b$10$7mhNRFd5X3qX7dT8ZsRF9..i/8W42CdwsLg5ZUAlpQxGmXoCO6Xc2', 'Budi Santoso', '3172091238910001', '08112345678', 'PESERTA', NOW(), NOW()),
+(4, 'sponsor@alara.co.id', '$2b$10$UrYMm1GUe8qRQwDULOIY7OFrIGXm9K6ZOwkgWdfxyEn4mxEQm1A3.', 'PT Medika Radiasi', '3171010101010004', '02112345678', 'SPONSOR', NOW(), NOW());
 
 -- 2. MASTER TRAINING CATEGORIES
 INSERT INTO `training_categories` (`id`, `code`, `name`, `description`, `order_index`, `is_active`, `created_at`, `updated_at`)
@@ -538,12 +538,7 @@ VALUES
 (1, 'PPR_ANALISIS', 'PPR Bidang Analisis', 'Pelatihan Calon Petugas Proteksi Radiasi bidang analisis dengan SRP (XRF, XRD, dll)', 1, 1, NOW(), NOW()),
 (2, 'PPR_BAGASI', 'PPR Pemindai Bagasi', 'Pelatihan Calon Petugas Proteksi Radiasi pemindai bagasi / barang (X-ray bandara/fasilitas keamanan)', 2, 1, NOW(), NOW()),
 (3, 'PKR_PEKERJA', 'PKR Pekerja Radiasi', 'Pelatihan Proteksi dan Keselamatan Radiasi untuk seluruh pekerja dan staf di medan radiasi', 3, 1, NOW(), NOW()),
-(4, 'PPR_PENYEGARAN', 'PPR Penyegaran', 'Penyegaran kompetensi PPR untuk syarat perpanjangan Surat Izin Bekerja (SIB) BAPETEN', 4, 1, NOW(), NOW()),
-(5, 'PPR_EKSPOR_IMPOR', 'PPR Ekspor Impor', 'Pelatihan Calon Petugas Proteksi Radiasi untuk instansi importir / distributor SRP', 5, 1, NOW(), NOW()),
-(6, 'PPR_INDUSTRI_1', 'PPR Industri Tingkat 1', 'Pelatihan Calon PPR Industri Tingkat 1 (Radiografi Industri & Iradiator)', 6, 1, NOW(), NOW()),
-(7, 'PPR_INDUSTRI_2', 'PPR Industri Tingkat 2', 'Pelatihan Calon PPR Industri Tingkat 2 (Gauging, Logging, dll)', 7, 1, NOW(), NOW()),
-(8, 'PPR_MEDIK_1', 'PPR Medik Tingkat 1', 'Pelatihan Calon PPR Medik Tingkat 1 (Radioterapi & Kedokteran Nuklir)', 8, 1, NOW(), NOW()),
-(9, 'PPR_MEDIK_2', 'PPR Medik Tingkat 2', 'Pelatihan Calon PPR Medik Tingkat 2 (Radiologi Diagnostik & Intervensional)', 9, 1, NOW(), NOW());
+(4, 'PPR_PENYEGARAN', 'PPR Penyegaran', 'Penyegaran kompetensi PPR untuk syarat perpanjangan Surat Izin Bekerja (SIB) BAPETEN', 4, 1, NOW(), NOW());
 
 -- 3. INSTRUCTORS
 INSERT INTO `instructors` (`id`, `user_id`, `bapeten_license_no`, `license_expiry_date`, `iaea_certification`, `specialization`, `bio_summary`, `status`, `created_at`, `updated_at`)

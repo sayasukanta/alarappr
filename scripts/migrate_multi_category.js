@@ -6,11 +6,6 @@ const DEFAULT_CATEGORIES = [
   { code: 'PPR_BAGASI', name: 'PPR Pemindai Bagasi', description: 'Pelatihan Calon Petugas Proteksi Radiasi pemindai bagasi / barang (X-ray bandara/fasilitas keamanan)', orderIndex: 2 },
   { code: 'PKR_PEKERJA', name: 'PKR Pekerja Radiasi', description: 'Pelatihan Proteksi dan Keselamatan Radiasi untuk seluruh pekerja dan staf di medan radiasi', orderIndex: 3 },
   { code: 'PPR_PENYEGARAN', name: 'PPR Penyegaran', description: 'Penyegaran kompetensi PPR untuk syarat perpanjangan Surat Izin Bekerja (SIB) BAPETEN', orderIndex: 4 },
-  { code: 'PPR_EKSPOR_IMPOR', name: 'PPR Ekspor Impor', description: 'Pelatihan Calon Petugas Proteksi Radiasi untuk instansi importir / distributor SRP', orderIndex: 5 },
-  { code: 'PPR_INDUSTRI_1', name: 'PPR Industri Tingkat 1', description: 'Pelatihan Calon PPR Industri Tingkat 1 (Radiografi Industri & Iradiator)', orderIndex: 6 },
-  { code: 'PPR_INDUSTRI_2', name: 'PPR Industri Tingkat 2', description: 'Pelatihan Calon PPR Industri Tingkat 2 (Gauging, Logging, dll)', orderIndex: 7 },
-  { code: 'PPR_MEDIK_1', name: 'PPR Medik Tingkat 1', description: 'Pelatihan Calon PPR Medik Tingkat 1 (Radioterapi & Kedokteran Nuklir)', orderIndex: 8 },
-  { code: 'PPR_MEDIK_2', name: 'PPR Medik Tingkat 2', description: 'Pelatihan Calon PPR Medik Tingkat 2 (Radiologi Diagnostik & Intervensional)', orderIndex: 9 },
 ];
 
 async function main() {
