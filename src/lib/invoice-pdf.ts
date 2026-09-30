@@ -70,7 +70,7 @@ export function generateInvoicePdf(payment: InvoiceData) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.text("Lembaga Pelatihan Ketenaganukliran Berizin Resmi BAPETEN", margin + 30, 31);
-  doc.text(`SK ${payment.ktunNumber || "KTUN BAPETEN No. 07998.722.1.040726"} | www.alara.co.id`, margin + 30, 36);
+  doc.text(`SK ${payment.ktunNumber || "KTUN BAPETEN No. 07998.722.1.040726"} | www.hikmatproteksialara.com`, margin + 30, 36);
 
   // INVOICE Title on right side
   doc.setFont("helvetica", "bold");

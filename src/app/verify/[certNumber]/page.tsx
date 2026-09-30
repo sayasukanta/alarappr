@@ -6,6 +6,7 @@ import { XCircle, ArrowLeft, ShieldCheck } from 'lucide-react';
 import QRCode from 'qrcode';
 import VerifyCertificateView from '@/components/certificate/VerifyCertificateView';
 import { buildSyllabusFromDb } from '@/lib/certificateSyllabus';
+import { generateQrCodeWithLogoServer } from '@/lib/qrWithLogoServer';
 
 export const metadata: Metadata = {
   title: 'Verifikasi Sertifikat Resmi | ALARA Training System',
@@ -55,9 +56,9 @@ export default async function CertificateVerifyPage({ params }: PageProps) {
   let qrCodeDataUrl = '';
   if (isValid && examResult) {
     try {
-      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'https://hikmatproteksialara.com';
       const verifyUrl = `${baseUrl}/verify/${encodeURIComponent(examResult.certificateNumber || decoded)}`;
-      qrCodeDataUrl = await QRCode.toDataURL(verifyUrl, { width: 140, margin: 1 });
+      qrCodeDataUrl = await generateQrCodeWithLogoServer(verifyUrl);
     } catch (e) {
       console.error('Failed to generate verify QR code:', e);
     }

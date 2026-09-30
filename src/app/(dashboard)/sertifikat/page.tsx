@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import QRCode from "qrcode";
 import CertificateDocument from "@/components/certificate/CertificateDocument";
 import { CertificateSyllabusData } from "@/lib/certificateSyllabus";
+import { generateQrCodeWithLogoClient } from "@/lib/qrWithLogoClient";
 
 interface CertData {
   isEligible: boolean;
@@ -56,8 +57,9 @@ export default function SertifikatPage() {
           const resData = await res.json();
           setData(resData);
           if (resData.certificateNumber) {
-            const url = `${window.location.origin}/verify/${encodeURIComponent(resData.certificateNumber)}`;
-            const qr = await QRCode.toDataURL(url, { width: 140, margin: 1 });
+            const domain = process.env.NEXT_PUBLIC_APP_URL || "https://hikmatproteksialara.com";
+            const url = `${domain}/verify/${encodeURIComponent(resData.certificateNumber)}`;
+            const qr = await generateQrCodeWithLogoClient(url, "/logo.png", { width: 360 });
             setQrCodeDataUrl(qr);
           }
         } else {
@@ -73,7 +75,7 @@ export default function SertifikatPage() {
             startDate: "2026-09-14",
             endDate: "2026-09-16",
             issuedAt: "2026-09-16T17:00:00Z",
-            verifyUrl: "http://localhost:3000/verify/02%2FPPR%2FHP-ALARA%2F2026",
+            verifyUrl: "https://hikmatproteksialara.com/verify/02%2FPPR%2FHP-ALARA%2F2026",
             criteria: {
               attendanceComplete: true,
               logbookApproved: true,
@@ -87,7 +89,7 @@ export default function SertifikatPage() {
             },
           };
           setData(demoCert);
-          const qr = await QRCode.toDataURL(demoCert.verifyUrl, { width: 140, margin: 1 });
+          const qr = await generateQrCodeWithLogoClient(demoCert.verifyUrl, "/logo.png", { width: 360 });
           setQrCodeDataUrl(qr);
         }
       } catch (err) {
